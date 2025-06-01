@@ -1,38 +1,55 @@
-// Find a path from start to end using Breadth-First Search
-function findPath(start, end, mapLayout) {
-  const queue = [[start]];
-  const visited = new Set([`${start.x}-${start.y}`]);
-
-  while (queue.length > 0) {
-    const path = queue.shift();
-    const { x, y } = path[path.length - 1];
-
-    if (x === end.x && y === end.y) {
-      return path; // Path found
-    }
-
-    // Explore neighbors (up, down, left, right)
-    const neighbors = [
-      { x, y: y - 1 }, // Up
-      { x, y: y + 1 }, // Down
-      { x: x - 1, y }, // Left
-      { x: x + 1, y }  // Right
+/**
+ * map.js を編集してマップを変更してください。ここは触らないでください。
+ */
+function findPath(config) {
+    const { width, height, start, goal, traps } = config;
+    const dirs = [
+        { dx: 1, dz: 0, name: '→' }, // Right
+        { dx: -1, dz: 0, name: '←' }, // Left
+        { dx: 0, dz: 1, name: '↓' },  // Down (along Z axis)
+        { dx: 0, dz: -1, name: '↑' }, // Up (along Z axis)
     ];
 
-    for (const neighbor of neighbors) {
-      const key = `${neighbor.x}-${neighbor.y}`;
-      if (
-        neighbor.x >= 0 && neighbor.x < mapLayout[0].length &&
-        neighbor.y >= 0 && neighbor.y < mapLayout.length &&
-        mapLayout[neighbor.y][neighbor.x] !== '#' && // Check for walls
-        !visited.has(key)
-      ) {
-        visited.add(key);
-        const newPath = [...path, neighbor];
-        queue.push(newPath);
-      }
-    }
-  }
+    const passable = Array.from({ length: width }, () =>
+        Array.from({ length: height }, () => true)
+    );
+    traps.forEach(t => {
+        if (t.x >= 0 && t.x < width && t.y >= 0 && t.y < height) {
+            passable[t.x][t.y] = false;
+        }
+    });
 
-  return null; // No path found
+    const queue = [];
+    // Store path as sequence of {x, y} coordinates for easier validation
+    queue.push({ x: start.x, y: start.y, path: [] });
+    // Visited set should store stringified coordinates to avoid issues with object comparison
+    const visited = new Set([`${start.x},${start.y}`]);
+
+    while (queue.length > 0) {
+        const node = queue.shift();
+
+        if (node.x === goal.x && node.y === goal.y) {
+            return node.path; // Return the array of direction names
+        }
+
+        for (const d of dirs) {
+            const nx = node.x + d.dx;
+            const ny = node.y + d.dz; // Corresponds to Z axis in 3D
+
+            if (
+                nx >= 0 && nx < width &&
+                ny >= 0 && ny < height &&
+                passable[nx][ny] &&
+                !visited.has(`${nx},${ny}`)
+            ) {
+                visited.add(`${nx},${ny}`);
+                // Add the direction *name* to the path
+                queue.push({ x: nx, y: ny, path: node.path.concat(d.name) });
+            }
+        }
+    }
+    return null; // No path found
 }
+
+// グローバルに公開
+window.findPath = findPath;

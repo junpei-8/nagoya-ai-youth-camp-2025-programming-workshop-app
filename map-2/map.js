@@ -1,17 +1,22 @@
+/**
+ * ★ 生徒はこのファイルのマップ設定のみを編集してください ★
+ * width, height : マップの横・縦マス数
+ * start : スタート座標 { x:0, y:0 } のように
+ * goal : ゴール座標 { x:5, y:5 } のように
+ * traps : 罠の座標リスト（複数指定可）
+ */
 const mapConfig = {
-  width: 7,
-  height: 7,
-  tileSize: 32, // Assuming tileSize is consistent
-  start: { x: 1, y: 1 },
-  goal: { x: 5, y: 5 }, // Corrected goal to be within 0-6 range for a 7x7 grid
-  traps: [{ x: 3, y: 2 }, { x: 4, y: 4 }],
-  layout: [ // Example layout, can be adjusted
-    "#######",
-    "#S    #",
-    "# # # #",
-    "#  T  #",
-    "# ### #",
-    "#   T G#", // Adjusted G to be within bounds
-    "#######"
-  ]
+    width: 8,
+    height: 8,
+    start: { x: 1, y: 1 },
+    goal: { x: 6, y: 6 },
+    traps: [
+        { x: 3, y: 2 },
+        { x: 4, y: 4 },
+        { x: 2, y: 5 },
+        { x: 5, y: 1 },
+    ]
 };
+
+// 他のファイルは触らずに、この mapConfig だけを自由に変更してください
+window.mapConfig = mapConfig;

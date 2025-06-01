@@ -1,18 +1,34 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>お宝探索ダンジョン - Map 2</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="utf-8" />
+    <title>お宝探索ダンジョン - Map 2</title>
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <script src="../core.js"></script>
-  <script src="map.js"></script>
-  <script src="ai.js"></script>
-  <script>
-    // Initialize and start the game
-    initScene();
-    createMapObjects();
-    startGame();
-  </script>
+    <div id="container"></div>
+    <button id="startButton">実行</button>
+    <div id="treasureOverlay">💰</div>
+
+    <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
+    <script src="../core.js"></script>
+    <script src="map.js"></script>
+    <script src="ai.js"></script>
+    <script>
+        // Ensure gameConfig is available from map.js
+        if (window.mapConfig) {
+            // Initialize scene, objects, and render
+            initScene(window.mapConfig);
+            createMapObjects(window.mapConfig);
+            renderer.render(scene, camera); // Initial render
+
+            // Setup start button
+            document.getElementById('startButton').addEventListener('click', () => {
+                startGame(window.mapConfig, window.findPath);
+            });
+        } else {
+            console.error("mapConfig is not defined. Make sure map.js is loaded correctly and defines window.mapConfig.");
+        }
+    </script>
 </body>
 </html>
