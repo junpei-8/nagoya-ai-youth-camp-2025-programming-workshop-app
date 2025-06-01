@@ -13,7 +13,6 @@
     <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
     <script src="../core.js"></script>
     <script src="map.js"></script>
-    <script src="ai.js"></script>
     <script>
         // Ensure gameConfig is available from map.js
         if (window.mapConfig) {
@@ -24,7 +23,7 @@
 
             // Setup start button
             document.getElementById('startButton').addEventListener('click', () => {
-                startGame(window.mapConfig, window.findPath);
+                startGame(window.mapConfig);
             });
         } else {
             console.error("mapConfig is not defined. Make sure map.js is loaded correctly and defines window.mapConfig.");
