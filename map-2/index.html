@@ -1,18 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>お宝探索ダンジョン - Map 2</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="utf-8" />
+    <title>お宝探索ダンジョン - Map 2</title>
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <script src="../core.js"></script>
-  <script src="map.js"></script>
-  <script src="ai.js"></script>
-  <script>
-    // Initialize and start the game
-    initScene();
-    createMapObjects();
-    startGame();
-  </script>
+    <div id="container"></div>
+    <button id="startButton">実行</button>
+    <div id="treasureOverlay">💰</div>
+
+    <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
+    <!--
+      ★ APIキー設定の重要ステップ ★
+      1. ルートディレクトリにある `secret.example.js` をコピーして `secret.js` という名前のファイルを作成します。
+      2. `secret.js` ファイル内の "YOUR_DUMMY_API_KEY_HERE" をご自身の有効な OpenAI API キーに置き換えます。
+      3. 以下の行のコメントアウトを解除して、`secret.js` が読み込まれるようにします。
+    -->
+    <!-- <script src="../secret.js"></script> -->
+    <script src="../ai-service.js"></script>
+    <script src="../core.js"></script>
+    <script src="map.js"></script>
+    <script>
+        if (window.mapConfig) {
+            // APIキーの確認 (secret.js が読み込まれ、有効なキーが設定されているか)
+            if (typeof window.OPENAI_API_KEY !== 'undefined' && window.OPENAI_API_KEY !== "YOUR_DUMMY_API_KEY_HERE") {
+                initScene(window.mapConfig);
+                createMapObjects(window.mapConfig);
+                if (renderer && scene && camera) {
+                    renderer.render(scene, camera);
+                } else {
+                    console.error("レンダラー、シーン、またはカメラが初期レンダリング呼び出し前に初期化されていません。");
+                }
+                document.getElementById('startButton').addEventListener('click', () => {
+                    startGame(window.mapConfig);
+                });
+            } else {
+                console.error("OpenAI APIキーが正しく設定されていません。指示に従って secret.js を設定してください。");
+                alert("OpenAI APIキーが正しく設定されていません。\n\n手順:\n1. ルートの secret.example.js を secret.js にコピーします。\n2. secret.js 内のダミーキーを実際のキーに置き換えます。\n3. このHTMLファイル内の <script src=\"../secret.js\"></script> タグのコメントを解除します。\n\n上記を確認してください。");
+                const startButton = document.getElementById('startButton');
+                if (startButton) {
+                    startButton.disabled = true;
+                    startButton.innerText = "APIキー未設定";
+                }
+            }
+        } else {
+            console.error("mapConfig が定義されていません。map.js が正しく読み込まれ、window.mapConfig を定義しているか確認してください。");
+            alert("mapConfig が見つかりません。map.js を確認してください。");
+        }
+    </script>
 </body>
 </html>
