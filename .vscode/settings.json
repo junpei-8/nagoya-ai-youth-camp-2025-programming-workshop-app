@@ -1,15 +1,19 @@
 {
-  "editor.tabSize": 4,
-  "editor.insertSpaces": true,
-  "editor.detectIndentation": false,
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false,
 
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.formatOnSave": true,
-  "editor.codeActionsOnSave": {
-    "source.organizeImports": "explicit"
-  },
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit"
+    },
 
-  "explorer.sortOrderLexicographicOptions": "unicode",
+    "prettier.tabWidth": 4,
+    "prettier.useTabs": false,
+    "prettier.singleQuote": true,
 
-  "cSpell.userWords": []
+    "explorer.sortOrderLexicographicOptions": "unicode",
+
+    "cSpell.userWords": []
 }
