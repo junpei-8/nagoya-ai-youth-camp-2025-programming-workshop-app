@@ -9,25 +9,17 @@
 // ###########
 
 /**
- * @typedef {object}        MapConfig  このマップの主要な設定オブジェクト。
- *
- * @property {number}       width      マップの幅（タイル数）。例: 6 はマップの幅がタイル6つ分であることを意味します。
- *                                     マップの横マス数。
- *
- * @property {number}       height     マップの高さ（タイル数）。例: 6 はマップの高さがタイル6つ分であることを意味します。
- *                                     マップの縦マス数。
- *
- * @property {Point}        start      プレイヤーの開始座標。
- *                                     'x' は水平位置 (0 から width-1 まで)、
- *                                     'y' は奥行きの位置 (0 から height-1 まで) です。
- *                                     スタート座標 { x:0, y:0 } のように指定。
- * @property {Point}        goal       ゴール/宝物の座標。
- *                                     'start' と同じ座標系を使用します。
- *                                     ゴール座標 { x:5, y:5 } のように指定。
- *
- * @property {Array<Point>} traps      罠の座標の配列。
- *                                     配列内の各オブジェクトは 'x' と 'y' プロパティを持つ必要があります。
- *                                     罠の座標リスト（複数指定可）。
+ * @template {string} CellKey - mapConfig.cells のキーを表すリテラル型。
+ * @typedef {object} MapConfig
+ * @property {Array<Array<CellKey>>} layout - mapConfig.cells のキーであるセルキーの2次元配列。
+ * @property {Object<CellKey, CellDefinition>} cells - レイアウトで使用される各セルキーの定義。
+ */
+
+/**
+ * @typedef {object} CellDefinition
+ * @property {"start"|"goal"|"trap"|"object"|"normal"} [type] - セルの機能的な型。
+ * @property {string} [image] - セルの画像へのパス。
+ * @property {string} [color] - セルのフォールバック色（例: 16進文字列）。
  */
 
 /**
@@ -62,52 +54,44 @@ let playerMesh; // 3Dシーン内のプレイヤーキャラクターを表す�
  * @param {MapConfig} mapConfig 現在のマップの設定オブジェクト。
  */
 function initScene(mapConfig) {
-    // メインシーンを作成
     scene = new THREE.Scene();
-
-    // 透視投影カメラを設定
-    // 引数: 視野角(FOV), アスペクト比, 近クリッピング平面, 遠クリッピング平面
     camera = new THREE.PerspectiveCamera(
         45,
         window.innerWidth / window.innerHeight,
         0.1,
         1000
     );
-    // マップを見下ろすようにカメラを配置
-    // X: マップ幅の中心, Y: 高い位置（マップ幅 * 1.5 で良好な概観）, Z: マップ高さの中心
+
+    const mapDisplayWidth = mapConfig.layout[0].length;
+    const mapDisplayHeight = mapConfig.layout.length;
+
     camera.position.set(
-        mapConfig.width / 2,
-        mapConfig.width * 1.5,
-        mapConfig.height / 2
+        mapDisplayWidth / 2,
+        mapDisplayWidth * 1.5,
+        mapDisplayHeight / 2
     );
-    // カメラをマップ平面の中心に向ける (Y=0)
     camera.lookAt(
-        new THREE.Vector3(mapConfig.width / 2, 0, mapConfig.height / 2)
+        new THREE.Vector3(mapDisplayWidth / 2, 0, mapDisplayHeight / 2)
     );
 
-    // WebGLレンダラーをアンチエイリアス有効で設定（エッジを滑らかに）
     renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight); // ウィンドウ全体サイズに設定
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
-    // レンダラーのcanvas要素をDOMに追加
     const container = document.getElementById('container');
     if (container) {
         container.appendChild(renderer.domElement);
     } else {
-        // 指定されたコンテナが見つからない場合のフォールバック
         console.error(
             "ID 'container' のコンテナが見つかりません。レンダラーを document.body に追加します。"
         );
         document.body.appendChild(renderer.domElement);
     }
 
-    // 環境光を追加（シーン全体を照らす）
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // 白色光、強度60%
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
 
-    // 指向性ライトを追加（太陽光をシミュレートし、設定されていれば影を落とす）
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); // 白色光、強度80%
-    directionalLight.position.set(0, 10, 0); // シーンの上に配置し、下向きに照らす
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(0, 10, 0);
     scene.add(directionalLight);
 }
 
@@ -121,43 +105,65 @@ function initScene(mapConfig) {
  * @param {MapConfig} mapConfig 現在のマップの設定オブジェクト。
  */
 function createMapObjects(mapConfig) {
-    const { width, height, start, goal, traps } = mapConfig;
+    const layout = mapConfig.layout;
+    const cells = mapConfig.cells;
 
-    // マップの寸法に基づいて床タイルを作成
-    for (let i = 0; i < width; i++) {
-        // 3D空間のX軸に対応
-        for (let j = 0; j < height; j++) {
-            // 3D空間のZ軸に対応
+    const mapDisplayWidth = layout[0].length;
+    const mapDisplayHeight = layout.length;
+    let startX, startY;
+
+    // マップのタイルを作成
+    for (let j = 0; j < mapDisplayHeight; j++) { // y座標（行）
+        for (let i = 0; i < mapDisplayWidth; i++) { // x座標（列）
+            const alias = layout[j][i];
+            const cellDef = cells[alias];
+            
             const geometry = new THREE.PlaneGeometry(1, 1); // 1x1ユニットのタイル
-            let color = 0x888888; // デフォルトの色: 灰色
+            let colorValue = 0xffffff; // 未定義の場合はデフォルトで白に
 
-            // タイルの種類（ゴール、罠、通常）に基づいて色を決定
-            if (goal.x === i && goal.y === j) {
-                color = 0xffd700; // ゴールタイルは金色
-            } else if (traps.some((trap) => trap.x === i && trap.y === j)) {
-                color = 0xff0000; // 罠タイルは赤色
+            if (cellDef && cellDef.color) {
+                // 16進文字列の色を解析試行。無効な場合はフォールバック
+                const parsedColor = parseInt(cellDef.color.replace("#", ""), 16);
+                if (!isNaN(parsedColor)) {
+                    colorValue = parsedColor;
+                } else {
+                    console.warn(`Invalid color format for alias '${alias}': ${cellDef.color}. Using default white.`);
+                }
+            } else {
+                console.warn(`No cell definition or color for alias '${alias}'. Using default white color.`);
+            }
+
+            if (cellDef && cellDef.type === 'start') {
+                startX = i;
+                startY = j;
             }
 
             const material = new THREE.MeshStandardMaterial({
-                color: color,
+                color: colorValue,
                 side: THREE.DoubleSide,
             });
             const tile = new THREE.Mesh(geometry, material);
-
             // 平面を回転させて水平にする（床）
             tile.rotation.x = -Math.PI / 2;
-            // 3Dシーンにタイルを配置（iはX、jはZに対応、床なのでYは0）
+            // タイルを3Dシーンに配置（iはX、jはZに対応）
             tile.position.set(i, 0, j);
             scene.add(tile);
         }
     }
 
     // プレイヤーキャラクターのメッシュを作成
-    const playerGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8); // 小さな立方体
-    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff }); // 青色
+    const playerGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+    // プレイヤーマテリアルの色は独立して設定、または必要に応じて派生可能
+    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x4444ff }); 
     playerMesh = new THREE.Mesh(playerGeometry, playerMaterial);
-    // プレイヤーを開始座標に配置、床より少し上（Y=0.5）
-    playerMesh.position.set(start.x, 0.5, start.y);
+
+    if (startX !== undefined && startY !== undefined) {
+        // プレイヤーを開始座標に配置、床より少し上（Y=0.5）
+        playerMesh.position.set(startX, 0.5, startY);
+    } else {
+        console.error("Start type cell not found in map layout. Player not placed in createMapObjects.");
+        playerMesh.position.set(0, 0.5, 0); // 'start'タイプのセルが見つからない場合のデフォルト配置
+    }
     scene.add(playerMesh);
 }
 
@@ -176,53 +182,28 @@ function movePlayer(direction) {
         return;
     }
 
-    // XZ平面上の2D移動のためのステップベクトルを初期化
     let stepVec = { x: 0, z: 0 };
-
-    // 方向矢印に基づいて座標の変化を決定
     switch (direction) {
-        case '→': // 右（正のX）
-            stepVec.x = 1;
-            break;
-        case '←': // 左（負のX）
-            stepVec.x = -1;
-            break;
-        case '↑': // 上（画面上では前進、Three.jsの一般的なマップビューでは負のZ）
-            stepVec.z = -1;
-            break;
-        case '↓': // 下（画面上では後退、正のZ）
-            stepVec.z = 1;
-            break;
+        case '→': stepVec.x = 1; break;
+        case '←': stepVec.x = -1; break;
+        case '↑': stepVec.z = -1; break;
+        case '↓': stepVec.z = 1; break;
     }
 
-    const startPos = playerMesh.position.clone(); // 現在位置
-    // ステップベクトルを加算して目標位置を計算（地面移動なのでYは変更なし）
-    const endPos = playerMesh.position
-        .clone()
-        .add(new THREE.Vector3(stepVec.x, 0, stepVec.z));
+    const startPos = playerMesh.position.clone();
+    const endPos = playerMesh.position.clone().add(new THREE.Vector3(stepVec.x, 0, stepVec.z));
+    const duration = 200;
+    let startTime = null;
 
-    const duration = 200; // アニメーション時間（ミリ秒）
-    let startTime = null; // アニメーション開始時間を追跡
-
-    // requestAnimationFrameを使用したアニメーションループで滑らかな表示を実現
     function animate(currentTime) {
-        if (startTime === null) {
-            startTime = currentTime; // 最初のフレームでstartTimeを初期化
-        }
+        if (startTime === null) startTime = currentTime;
         const elapsedTime = currentTime - startTime;
-        // 補間係数 't' (0から1) を計算
         const t = Math.min(elapsedTime / duration, 1);
-
-        // startPosからendPosへプレイヤー位置を滑らかに補間
         playerMesh.position.lerpVectors(startPos, endPos, t);
-        renderer.render(scene, camera); // 各フレームでシーンを再レンダリング
-
-        if (t < 1) {
-            // アニメーションが完了していなければ継続
-            requestAnimationFrame(animate);
-        }
+        renderer.render(scene, camera);
+        if (t < 1) requestAnimationFrame(animate);
     }
-    requestAnimationFrame(animate); // アニメーションループを開始
+    requestAnimationFrame(animate);
 }
 
 // ##############
@@ -235,16 +216,39 @@ function movePlayer(direction) {
  * @param {MapConfig} mapConfig 現在のマップの設定オブジェクト。
  */
 async function startGame(mapConfig) {
-    // プレイヤー位置をマップの開始地点にリセット
     if (playerMesh) {
-        playerMesh.position.set(mapConfig.start.x, 0.5, mapConfig.start.y);
+        const layout = mapConfig.layout;
+        const cells = mapConfig.cells;
+        const mapDisplayHeight = layout.length;
+        const mapDisplayWidth = layout[0].length;
+        let startX, startY;
+
+        for (let j = 0; j < mapDisplayHeight; j++) {
+            for (let i = 0; i < mapDisplayWidth; i++) {
+                const alias = layout[j][i];
+                const cellDef = cells[alias];
+                if (cellDef && cellDef.type === 'start') {
+                    startX = i;
+                    startY = j;
+                    break;
+                }
+            }
+            if (startX !== undefined) break;
+        }
+
+        if (startX !== undefined && startY !== undefined) {
+            // プレイヤー位置をマップの開始地点にリセット
+            playerMesh.position.set(startX, 0.5, startY);
+        } else {
+            console.error("Start type cell not found in map layout for startGame. Player position not reset.");
+            playerMesh.position.set(0, 0.5, 0); // デフォルトのフォールバック
+        }
     } else {
-        // このケースは、initSceneとcreateMapObjectsが最初に呼び出されれば理想的には発生しないはずです。
         console.warn(
             'startGameの前にplayerMeshが初期化されていません。プレイヤーが表示されないか、制御できない可能性があります。'
         );
     }
-    renderer.render(scene, camera); // 開始位置にプレイヤーがいる状態でシーンをレンダリング
+    renderer.render(scene, camera);
 
     // aiService.jsのfetchPathFromAI関数を使用してAIから経路を取得
     // window.OPENAI_API_KEY は、学生が secret.example.js を secret.js にコピーし、
@@ -257,7 +261,7 @@ async function startGame(mapConfig) {
     if (!moves || moves.length === 0) {
         alert(
             'ゴールに到達できるルートが見つかりませんでした。AIが経路を生成できなかったか、設定に問題がある可能性があります。'
-        ); // 経路が見つからない場合にアラート
+        );
         return;
     }
 
@@ -267,25 +271,77 @@ async function startGame(mapConfig) {
         if (stepIndex < moves.length) {
             movePlayer(moves[stepIndex]);
             stepIndex++;
-            setTimeout(executeMove, 500); // 移動間の遅延500ミリ秒
+            setTimeout(executeMove, 500);
         }
     }
-    executeMove(); // 移動シーケンスを開始
+    executeMove();
+}
+
+// ########################
+// ## アプリケーション初期化 ##
+// ########################
+
+/**
+ * マップアプリケーションを初期化します。
+ * シーン、オブジェクトの作成、イベントリスナーの設定など、共通の初期化処理を行います。
+ * @param {MapConfig} mapConfig - 使用するマップの設定オブジェクト。 (例: map-1/map.js や map-2/map.js から提供される)
+ */
+function initializeAppMap(mapConfig) {
+    if (mapConfig) {
+        // APIキーの確認 (secret.js が読み込まれ、有効なキーが設定されているか)
+        if (
+            typeof window.OPENAI_API_KEY !== 'undefined' &&
+            window.OPENAI_API_KEY !== 'YOUR_DUMMY_API_KEY_HERE'
+        ) {
+            initScene(mapConfig);
+            createMapObjects(mapConfig);
+            
+            if (renderer && scene && camera) { 
+                renderer.render(scene, camera);
+            } else {
+                console.error(
+                    'レンダラー、シーン、またはカメラが初期レンダリング呼び出し前に初期化されていません。'
+                );
+            }
+            
+            const startButton = document.getElementById('startButton');
+            if (startButton) {
+                startButton.addEventListener('click', () => {
+                    startGame(mapConfig);
+                });
+            }
+        } else {
+            console.error(
+                'OpenAI APIキーが正しく設定されていません。指示に従って secret.js を設定してください。'
+            );
+            alert(
+                'OpenAI APIキーが正しく設定されていません。\n\n手順:\n1. ルートの secret.example.js を secret.js にコピーします。\n2. secret.js 内のダミーキーを実際のキーに置き換えます。\n3. このHTMLファイル内の script タグのコメントを解除します。\n\n上記を確認してください。'
+            );
+            const startButton = document.getElementById('startButton');
+            if (startButton) {
+                startButton.disabled = true;
+                startButton.innerText = 'APIキー未設定';
+            }
+        }
+    } else {
+        console.error(
+            'mapConfig が定義されていません。map.js が正しく読み込まれ、window.mapConfig を定義しているか確認してください。'
+        );
+        alert(
+            'mapConfig が見つかりません。map.js を確認してください。'
+        );
+    }
 }
 
 // ###################
 // ## イベントリスナー ##
 // ###################
 
-// ウィンドウリサイズイベントを処理して、ビューポートとカメラ設定を更新し続けます。
 window.addEventListener('resize', () => {
     if (camera && renderer) {
-        // カメラのアスペクト比を更新
         camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix(); // アスペクト比の変更を適用
-
-        // レンダラーのサイズを更新
+        camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.render(scene, camera); // 新しい寸法でシーンを再レンダリング
+        renderer.render(scene, camera);
     }
 });
