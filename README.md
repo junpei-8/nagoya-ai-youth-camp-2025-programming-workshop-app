@@ -1,4 +1,4 @@
-# NAGOYA TEENS AI CAMP 2025
+# NAGOYA TEENS AI CAMP 2025 プログラミングワークショップ
 
 -   [ソースコード（Github）](https://github.com/itnav/nagoya-ai-event-2024-07_b-course)
 
