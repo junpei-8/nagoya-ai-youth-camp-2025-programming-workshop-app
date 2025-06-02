@@ -250,12 +250,21 @@ async function startGame(mapConfig) {
     }
     renderer.render(scene, camera);
 
+    // Retrieve AI prompt from window.aiPrompt
+    let promptFromWindow = "Default prompt: Find a path from start to goal."; // Default prompt
+    if (typeof window.aiPrompt === 'string' && window.aiPrompt.trim() !== '') {
+        promptFromWindow = window.aiPrompt;
+    } else {
+        console.warn('window.aiPrompt is not set or is empty. Using a default prompt.');
+    }
+
     // aiService.jsのfetchPathFromAI関数を使用してAIから経路を取得
     // window.OPENAI_API_KEY は、学生が secret.example.js を secret.js にコピーし、
     // 自身のAPIキーを設定し、HTMLで secret.js を読み込むことで設定される想定です。
     const moves = await window.fetchPathFromAI(
         mapConfig,
-        window.OPENAI_API_KEY
+        window.OPENAI_API_KEY,
+        promptFromWindow
     );
 
     if (!moves || moves.length === 0) {
