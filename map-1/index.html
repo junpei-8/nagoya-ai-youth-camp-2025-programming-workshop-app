@@ -11,22 +11,25 @@
     <div id="treasureOverlay">💰</div>
 
     <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
+    <script src="../ai-service.js"></script>
     <script src="../core.js"></script>
     <script src="map.js"></script>
     <script>
-        // Ensure gameConfig is available from map.js
         if (window.mapConfig) {
-            // Initialize scene, objects, and render
             initScene(window.mapConfig);
             createMapObjects(window.mapConfig);
-            renderer.render(scene, camera); // Initial render
+            if (renderer && scene && camera) { // レンダラー、シーン、カメラが初期化されていることを確認
+                renderer.render(scene, camera); // 初期レンダリング
+            } else {
+                console.error("レンダラー、シーン、またはカメラが初期レンダリング呼び出し前に初期化されていません。");
+            }
 
-            // Setup start button
             document.getElementById('startButton').addEventListener('click', () => {
-                startGame(window.mapConfig);
+                startGame(window.mapConfig); // startGameは非同期ですが、ここではawait不要です
             });
         } else {
-            console.error("mapConfig is not defined. Make sure map.js is loaded correctly and defines window.mapConfig.");
+            console.error("mapConfig が定義されていません。map.js が正しく読み込まれ、window.mapConfig を定義しているか確認してください。");
+            alert("mapConfig が見つかりません。map.js を確認してください。");
         }
     </script>
 </body>
