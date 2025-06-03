@@ -1,4 +1,17 @@
 // ai-fetch.js
+import { moveChars } from './game.js'; // game.js から moveChars をインポート
+
+// moveChars を使用して正規表現を動的に生成
+// Object.values(moveChars) は ['l', 'r', 't', 'b'] のような配列を返すことを想定
+const allowedCharsList = Object.values(moveChars);
+// allowedCharsPattern は "lrtb" のような文字列になる
+const allowedCharsPattern = allowedCharsList.join('');
+// filterRegex は /[^lrtb]/g のような正規表現になる (許可された文字以外にマッチ)
+const filterRegex = new RegExp("[^" + allowedCharsPattern + "]", "g");
+// extractRegex は /[lrtb]+/g のような正規表現になる (許可された文字の連続にマッチ)
+const extractRegex = new RegExp("[" + allowedCharsPattern + "]+", "g");
+
+
 // OpenAI APIキーは、このモジュールを使用する側 (例: index.html 内のスクリプト) から渡されるように変更されました。
 // そのため、ここでの secret.js からの直接的なインポートは不要です。
 
@@ -82,18 +95,26 @@ export async function fetchRoutePathWithOpenAI({ systemPrompt, routePrompt, mapC
         const messageContent = data.choices[0].message.content;
         // AIからの応答メッセージ（移動指示）を解析します。
         // この部分は、AIの応答形式に応じて調整が必要になる場合があります。
-        // 例えば、"↑,→,↓" や "上, 右, 下" のような形式を想定しています。
-        // 現在は、連続した矢印文字（↑↓←→）を抽出します。
-        const moves = messageContent.match(/[↑↓←→]+/g);
+        // 例えば、moveCharsで定義された文字 (l,r,t,bなど) のような形式を想定しています。
+        // AIからの応答メッセージ（移動指示）を解析します。
+        // 応答から許可された文字 (allowedCharsPattern で定義されたもの) のみを抽出します。
+        const filteredMessageContent = messageContent.replace(filterRegex, "");
+
+        // 次に、フィルタリングされた文字列から連続した移動指示 (extractRegex で定義されたもの) を抽出します。
+        // これにより、"lrtb" のようなシーケンスが一つの要素として抽出されます。
+        const moves = filteredMessageContent.match(extractRegex);
 
         // 抽出された移動指示が有効か確認します。
-        if (!moves || moves.length === 0) {
-            console.warn("AIの応答に認識可能な移動指示が含まれていませんでした:", messageContent);
+        // AIからの応答は moveChars で定義された文字のみを含むことを期待しています。
+        if (!moves || moves.length === 0 || moves[0].length === 0) {
+            console.warn("AIの応答に認識可能なAI移動指示 (" + allowedCharsList.join(',') + " の文字のみ) が含まれていませんでした。フィルタリング後の内容:", filteredMessageContent, "元の内容:", messageContent);
             alert("AIの応答から有効な移動指示を抽出できませんでした。");
             return null;
         }
 
-        return moves; // 抽出された移動指示の配列を返します。
+        // 抽出された移動指示の配列を返します。通常は要素が1つの配列になるはずです。
+        // 例 ["lrrl"]
+        return moves;
 
     } catch (error) {
         // ネットワークエラーやその他の予期せぬエラーをキャッチします。
