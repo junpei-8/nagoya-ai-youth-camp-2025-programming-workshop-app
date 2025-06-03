@@ -1,4 +1,5 @@
 // game.js
+// movement-commands.js からのインポートは削除されました。移動コマンドはローカルで定義されます。
 
 // Three.js は動的にインポートします
 let THREE; // グローバルTHREEインスタンス（loadThreeJSで設定）
@@ -187,11 +188,20 @@ export async function setupGame({ containerElement, mapConfig }) {
 }
 
 
+// 移動コマンド文字の定義 (AIからの応答とプレイヤー移動に使用)
+// エクスポートして他のモジュール (例: ai-fetch.js) で利用可能にする
+export const moveChars = {
+    LEFT: 'l',   // 左への移動
+    RIGHT: 'r',  // 右への移動
+    UP: 't',     // 上への移動 (Top を意味する 't')
+    DOWN: 'b'    // 下への移動 (Bottom を意味する 'b')
+};
+
 /**
  * プレイヤーを指定された方向に1ステップ移動させ、アニメーション表示します。
  * @param {object} params - 移動パラメータ。
  * @param {object} params.gameContext - ゲームコンテキストオブジェクト ({ scene, camera, renderer, playerMesh, THREE })。
- * @param {'↑'|'↓'|'←'|'→'} params.direction - 移動方向。
+ * @param {'t'|'b'|'l'|'r'} params.direction - 移動方向。 "t" (上), "b" (下), "l" (左), "r" (右) のみサポートします。
  */
 export function movePlayer({ gameContext, direction }) {
     if (!gameContext) {
@@ -223,11 +233,11 @@ export function movePlayer({ gameContext, direction }) {
 
     let stepVec = { x: 0, z: 0 }; // 移動ベクトル
     switch (direction) {
-        case '→': stepVec.x = 1; break;
-        case '←': stepVec.x = -1; break;
-        case '↑': stepVec.z = -1; break;
-        case '↓': stepVec.z = 1; break;
-        default: console.warn(`未定義の移動方向: ${direction}`); return; // 未知の方向の場合は何もしない
+        case moveChars.RIGHT: stepVec.x = 1; break;  // 右 (Right)
+        case moveChars.LEFT:  stepVec.x = -1; break; // 左 (Left)
+        case moveChars.UP:    stepVec.z = -1; break; // 上 (Top)
+        case moveChars.DOWN:  stepVec.z = 1; break;  // 下 (Bottom)
+        default: console.warn(`未定義またはサポート外の移動方向: ${direction}`); return; // 未知の方向の場合は何もしない
     }
 
     const startPos = currentPMesh.position.clone(); // 現在位置を保存
@@ -338,16 +348,25 @@ export function setupPlayerMoverButton({
                 return;
             }
 
-            console.log("AIからの経路:", moves);
-            for (let i = 0; i < moves.length; i++) {
-                await new Promise(resolve => setTimeout(resolve, i === 0 ? 0 : 500));
-                movePlayer({
-                    gameContext,
-                    direction: moves[i]
-                });
+            console.log("AIからの経路:", moves); // moves は ["ltrb"] のような配列を想定
+            if (moves && moves.length > 0) {
+                const moveSequence = moves[0]; // "ltrb" のような文字列
+                for (let i = 0; i < moveSequence.length; i++) {
+                    const moveChar = moveSequence[i];
+                    // 各移動の間に適切な遅延を入れる (必要に応じて調整)
+                    // 初回以降の移動に500msの遅延
+                    await new Promise(resolve => setTimeout(resolve, i === 0 ? 0 : 500));
+                    movePlayer({
+                        gameContext,
+                        direction: moveChar // 文字単位で移動指示
+                    });
+                }
+            } else {
+                console.warn("AIからの経路が空または不正な形式です。");
+                // アラートは fetchPathFunction 側で処理される想定
             }
         } catch (error) {
-            console.error("AI経路取得または実行中にエラーが発生しました:", error);
+            console.error("AI経路取得またはプレイヤー移動の実行中にエラーが発生しました:", error);
             // エラー発生時のアラートはfetchPathFunction内で処理される想定
         } finally {
             buttonElement.disabled = false; // 処理完了後またはエラー時にボタンを再度有効化

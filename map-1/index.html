@@ -10,11 +10,14 @@
 
         // アプリケーション固有モジュール (パス階層順にソート)
         import { OPENAI_API_KEY } from '../../secret.js'; // APIキーをインポート
-        import { systemPrompt } from '../../ai-system-prompt.js';
+        import { generateSystemPrompt } from '../../ai-system-prompt.js'; // generateSystemPrompt をインポート
         import { fetchRoutePathWithOpenAI } from '../../ai-fetch.js';
         import { setupGame, setupPlayerMoverButton } from '../../game.js';
         import { mapConfig } from './map.js';
         import { routePrompt } from './ai-route-prompt.js';
+
+        // システムプロンプトを動的に生成
+        const systemPrompt = generateSystemPrompt(mapConfig.cells);
 
         // DOM要素の取得 (deferにより、このスクリプト実行時にはDOMはパース済み)
         const container = document.getElementById('container');
