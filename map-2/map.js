@@ -7,7 +7,7 @@
  *
  * @type {MapConfig}
  */
-const mapConfig = {
+export const mapConfig = {
     width: 8,
     height: 8,
     start: { x: 1, y: 1 },
@@ -21,4 +21,3 @@ const mapConfig = {
 };
 
 // 他のファイルは触らずに、この mapConfig だけを自由に変更してください
-window.mapConfig = mapConfig;
