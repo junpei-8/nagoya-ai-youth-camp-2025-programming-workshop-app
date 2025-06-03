@@ -39,11 +39,12 @@ async function loadThreeJS() {
  */
 function _renderMapLogic({ containerElement, mapConfig, THREE_INSTANCE }) {
     // 既存のレンダラーがあればクリーンアップ
-    if (renderer && renderer.domElement.parentNode === containerElement) {
-        containerElement.removeChild(renderer.domElement);
-    }
     if (renderer) {
+        if (renderer.domElement.parentNode === containerElement) {
+            containerElement.removeChild(renderer.domElement);
+        }
         renderer.dispose(); // WebGLコンテキストを解放
+        renderer = null; // 参照をクリア
     }
 
     scene = new THREE_INSTANCE.Scene();
@@ -75,11 +76,14 @@ function _renderMapLogic({ containerElement, mapConfig, THREE_INSTANCE }) {
             const geometry = new THREE_INSTANCE.PlaneGeometry(1, 1); // 1x1 サイズの平面ジオメトリ
             let colorValue = 0xcccccc; // 未定義タイル用のデフォルト色
 
-            if (cellDef && cellDef.color) {
+            if (!cellDef) {
+                console.warn(`セル '${cellAlias}' の定義が mapConfig.cells に見つかりません。デフォルト色を使用します。`);
+                continue; // 次のセルへ
+            }
+
+            if (cellDef.color) {
                 const parsedColor = parseInt(cellDef.color.replace("#", ""), 16);
                 colorValue = isNaN(parsedColor) ? colorValue : parsedColor;
-            } else if (!cellDef) {
-                 console.warn(`セル '${cellAlias}' の定義が mapConfig.cells に見つかりません。デフォルト色を使用します。`);
             }
 
             const material = new THREE_INSTANCE.MeshStandardMaterial({ color: colorValue, side: THREE_INSTANCE.DoubleSide });
@@ -122,19 +126,20 @@ function _createPlayerLogic({ scene: currentScene, mapConfig, THREE_INSTANCE }) 
 
     const layout = mapConfig.layout;
     let startX, startY;
-    // スタート地点を検索
+
+    // スタート地点を検索 (リファクタリング)
+    let startPositionFound = false;
     for (let j = 0; j < layout.length; j++) {
-        for (let i = 0; i < layout[j].length; i++) {
-            if (mapConfig.cells[layout[j][i]]?.type === 'start') {
-                startX = i;
-                startY = j;
-                break;
-            }
+        const rowIndex = layout[j].findIndex(cellAlias => mapConfig.cells[cellAlias]?.type === 'start');
+        if (rowIndex !== -1) {
+            startX = rowIndex;
+            startY = j;
+            startPositionFound = true;
+            break;
         }
-        if (startX !== undefined) break;
     }
 
-    if (startX === undefined) {
+    if (!startPositionFound) {
         console.error("マップに開始地点 's' が見つかりません。プレイヤーを (0,0) に配置します。");
         startX = 0; // フォールバック位置
         startY = 0; // フォールバック位置
@@ -189,14 +194,30 @@ export async function setupGame({ containerElement, mapConfig }) {
  * @param {'↑'|'↓'|'←'|'→'} params.direction - 移動方向。
  */
 export function movePlayer({ gameContext, direction }) {
+    if (!gameContext) {
+        console.error("gameContextが提供されていません。movePlayerは実行できません。");
+        return;
+    }
     const { playerMesh: currentPMesh, scene: currentScene, camera: currentCamera, renderer: currentRenderer, THREE: THREE_INSTANCE } = gameContext;
 
-    if (!currentPMesh || !currentScene || !currentCamera || !currentRenderer) {
-        console.error("movePlayerのためのゲームコンテキストのコンポーネントが不足しています。");
+    if (!currentPMesh) {
+        console.error("プレイヤーメッシュ (currentPMesh) がgameContextに提供されていません。");
+        return;
+    }
+    if (!currentScene) {
+        console.error("シーン (currentScene) がgameContextに提供されていません。");
+        return;
+    }
+    if (!currentCamera) {
+        console.error("カメラ (currentCamera) がgameContextに提供されていません。");
+        return;
+    }
+    if (!currentRenderer) {
+        console.error("レンダラー (currentRenderer) がgameContextに提供されていません。");
         return;
     }
     if (!THREE_INSTANCE) {
-        console.error("Three.jsインスタンスがgameContextに提供されていません。movePlayerは実行できません。");
+        console.error("Three.jsインスタンス (THREE_INSTANCE) がgameContextに提供されていません。");
         return;
     }
 
@@ -254,16 +275,21 @@ export function setupPlayerMoverButton({
         return;
     }
 
+    if (!gameContext) {
+        console.error("gameContextが提供されていません。ボタンのセットアップを中止します。");
+        buttonElement.disabled = true;
+        return;
+    }
     const { scene, camera, renderer, playerMesh: currentPMesh, THREE: THREE_INSTANCE } = gameContext;
 
     if (!THREE_INSTANCE) {
-        console.error("Three.jsインスタンスがgameContextに提供されていません。ボタンのセットアップを中止します。");
+        console.error("Three.jsインスタンス (THREE_INSTANCE) がgameContextに提供されていません。ボタンのセットアップを中止します。");
         buttonElement.disabled = true; // ボタンを無効化
         alert("Three.jsの読み込みエラーのため、処理を開始できません。");
         return;
     }
     if (!currentPMesh) {
-        console.error("プレイヤーメッシュがgameContextに提供されていません。ボタンのセットアップを中止します。");
+        console.error("プレイヤーメッシュ (currentPMesh) がgameContextに提供されていません。ボタンのセットアップを中止します。");
         buttonElement.disabled = true; // ボタンを無効化
         return;
     }
@@ -272,52 +298,53 @@ export function setupPlayerMoverButton({
         console.log("AIによる経路指示に基づくプレイヤー移動を開始します...");
         buttonElement.disabled = true; // 処理中にボタンを無効化
 
-        // スタート位置にプレイヤーをリセット (オプション)
-        let startX, startY;
-        if (mapConfig.layout && mapConfig.cells) { // mapConfigの構造をチェック
-            for (let j = 0; j < mapConfig.layout.length; j++) {
-                for (let i = 0; i < mapConfig.layout[j].length; i++) {
-                    if (mapConfig.cells[mapConfig.layout[j][i]]?.type === 'start') {
-                        startX = i;
-                        startY = j;
-                        break;
-                    }
-                }
-                if (startX !== undefined) break;
-            }
-        } else {
+        if (!mapConfig || !mapConfig.layout || !mapConfig.cells) {
             console.warn("mapConfig.layout または mapConfig.cells が未定義です。プレイヤーをリセットできません。");
-        }
-
-        if (startX !== undefined) { // スタート地点が見つかった場合のみリセット
-            currentPMesh.position.set(startX, 0.5, startY);
-            renderer.render(scene, camera); // 位置変更を反映
+            // この場合でもAIによる経路探索は試みるかもしれないので、ここでは早期リターンしない
         } else {
-            console.warn("スタート地点がマップ設定に見つかりませんでした。プレイヤーはリセットされません。");
+            // スタート位置にプレイヤーをリセット (オプション)
+            let startX, startY;
+            let startPositionFound = false;
+            for (let j = 0; j < mapConfig.layout.length; j++) {
+                const rowIndex = mapConfig.layout[j].findIndex(cellAlias => mapConfig.cells[cellAlias]?.type === 'start');
+                if (rowIndex !== -1) {
+                    startX = rowIndex;
+                    startY = j;
+                    startPositionFound = true;
+                    break;
+                }
+            }
+
+            if (startPositionFound) {
+                currentPMesh.position.set(startX, 0.5, startY);
+                renderer.render(scene, camera); // 位置変更を反映
+            } else {
+                console.warn("スタート地点がマップ設定に見つかりませんでした。プレイヤーはリセットされません。");
+            }
         }
 
         try {
-            // fetchPathFunction (fetchRoutePathWithOpenAI) を呼び出す際にapiKeyを渡す
             const moves = await fetchPathFunction({
                 systemPrompt,
                 routePrompt,
                 mapConfig,
-                apiKey // apiKeyを渡す
+                apiKey
             });
 
-            if (moves && moves.length > 0) {
-                console.log("AIからの経路:", moves);
-                for (let i = 0; i < moves.length; i++) {
-                    // 各移動の前に遅延を挿入 (初回以外)
-                    await new Promise(resolve => setTimeout(resolve, i === 0 ? 0 : 500));
-                    movePlayer({
-                        gameContext, // gameContextを渡す
-                        direction: moves[i]
-                    });
-                }
-            } else {
+            if (!moves || moves.length === 0) {
                 console.warn("AIから有効な経路が返されませんでした。");
                 // AIからの経路がない場合のアラートはfetchPathFunction内で処理される想定
+                buttonElement.disabled = false; // ボタンを再度有効化
+                return;
+            }
+
+            console.log("AIからの経路:", moves);
+            for (let i = 0; i < moves.length; i++) {
+                await new Promise(resolve => setTimeout(resolve, i === 0 ? 0 : 500));
+                movePlayer({
+                    gameContext,
+                    direction: moves[i]
+                });
             }
         } catch (error) {
             console.error("AI経路取得または実行中にエラーが発生しました:", error);
