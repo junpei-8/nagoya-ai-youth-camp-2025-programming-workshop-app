@@ -1,23 +1,45 @@
 /**
- * ★ 生徒はこのファイルのマップ設定のみを編集してください ★
- *
  * 現在のマップの設定オブジェクトです。
- * 生徒はこのオブジェクトのプロパティ値を変更することで、
- * マップのレイアウト、スタート/ゴール位置、罠の位置を変更できます。
  *
- * @type {MapConfig}
+ * このオブジェクトのプロパティ値を変更することで、\
+ * マップのレイアウト、スタート/エンド位置、罠の位置を変更できます。
+ *
+ * @type {import("../game").MapConfig}
  */
 export const mapConfig = {
-    width: 8,
-    height: 8,
-    start: { x: 1, y: 1 },
-    goal: { x: 6, y: 6 },
-    traps: [
-        { x: 3, y: 2 },
-        { x: 4, y: 4 },
-        { x: 2, y: 5 },
-        { x: 5, y: 1 },
+    layout: [
+        ['s', 'n', 'n', 'n', 'n', 'n'],
+        ['n', 'n', 't', 'n', 'n', 'n'],
+        ['n', 'n', 'o', 'n', 'n', 'n'],
+        ['n', 'n', 'n', 't', 'n', 'n'],
+        ['n', 'n', 'n', 'n', 'n', 'n'],
+        ['n', 'n', 'n', 'n', 'n', 'e'],
     ],
+    cell: {
+        s: {
+            type: 'start',
+            image: 'images/start_tile.png',
+            color: '#4444FF',
+        },
+        e: {
+            type: 'end',
+            image: 'images/end_tile.png',
+            color: '#FFD700',
+        },
+        t: {
+            type: 'trap',
+            image: 'images/trap_tile.png',
+            color: '#FF0000',
+        },
+        o: {
+            type: 'object',
+            image: 'images/object1_tile.png',
+            color: '#00FF00',
+        },
+        n: {
+            type: 'normal',
+            image: 'images/normal_tile.png',
+            color: '#888888',
+        },
+    },
 };
-
-// 他のファイルは触らずに、この mapConfig だけを自由に変更してください

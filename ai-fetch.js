@@ -1,125 +1,117 @@
-// ai-fetch.js
-import { moveChars } from './game.js'; // game.js から moveChars をインポート
+import { movementKeys } from './game.js'; // game.js から movementKeys をインポート
 
-// moveChars を使用して正規表現を動的に生成
-// Object.values(moveChars) は ['l', 'r', 't', 'b'] のような配列を返すことを想定
-const allowedCharsList = Object.values(moveChars);
-// allowedCharsPattern は "lrtb" のような文字列になる
+// movementKeys を使用して正規表現を動的に生成
+const allowedCharsList = Object.values(movementKeys);
 const allowedCharsPattern = allowedCharsList.join('');
-// filterRegex は /[^lrtb]/g のような正規表現になる (許可された文字以外にマッチ)
-const filterRegex = new RegExp("[^" + allowedCharsPattern + "]", "g");
-// extractRegex は /[lrtb]+/g のような正規表現になる (許可された文字の連続にマッチ)
-const extractRegex = new RegExp("[" + allowedCharsPattern + "]+", "g");
-
-
-// OpenAI APIキーは、このモジュールを使用する側 (例: index.html 内のスクリプト) から渡されるように変更されました。
-// そのため、ここでの secret.js からの直接的なインポートは不要です。
+const filterRegex = new RegExp(`[^${allowedCharsPattern}]`, 'g');
+const extractRegex = new RegExp(`[${allowedCharsPattern}]+`, 'g');
 
 /**
- * OpenAI APIを使用して経路パスを取得します。
- * @param {object} params - AIパス取得のためのパラメータ。
- * @param {string} params.systemPrompt - AIへのシステムプロンプト。
- * @param {string} params.routePrompt - ユーザー提供の経路プロンプト（指示）。
- * @param {object} [params.mapConfig] - オプション。AIがコンテキストとして必要とする場合のマップ設定（現在のプロンプトでは明示的に使用していません）。
- * @param {string} params.apiKey - OpenAI APIキー。
- * @returns {Promise<Array<string>|null>} 移動指示の配列（例: ['↑', '↓', '←', '→']）を解決するPromise、またはエラーの場合はnull。
+ * OpenAI API を使用して経路パスを取得する。
+ *
+ * @param {object} params                 AIパス取得のためのパラメータ
+ * @param {string} params.apiKey          OpenAI API キー
+ * @param {string} params.systemPrompt    AIへのシステムプロンプト
+ * @param {string} params.routePrompt     ユーザー提供の経路プロンプト（指示）
+ * @returns {Promise<Array<string>|null>} 移動指示の配列（例: ['l', 'r', 'u', 'd']）
  */
-export async function fetchRoutePathWithOpenAI({ systemPrompt, routePrompt, mapConfig, apiKey }) {
-    // APIキーは関数の引数から取得します。
-    // const apiKey = OPENAI_API_KEY; // この行は不要になりました。
+export async function fetchRoutePathWithOpenAI({
+    apiKey,
+    systemPrompt,
+    routePrompt,
+}) {
+    // OpenAI API のエンドポイント
+    const openAIEndpoint = 'https://api.openai.com/v1/chat/completions';
 
-    if (!apiKey || apiKey === "YOUR_OPENAI_API_KEY_HERE" || apiKey === "YOUR_DUMMY_API_KEY_HERE") {
-        console.error("OpenAI APIキーが設定されていないか、プレースホルダーのままです。適切なAPIキーを渡してください。");
-        alert("OpenAI APIキーが正しく設定されていません。");
-        return null;
-    }
-
-    const openAIEndpoint = "https://api.openai.com/v1/chat/completions";
-
-    // OpenAI APIのためのメッセージペイロードを構築します。
+    // OpenAI API のためのメッセージペイロードを構築する
     const messages = [
         {
-            role: "system",
-            content: systemPrompt
+            role: 'system',
+            content: systemPrompt,
         },
         {
-            role: "user",
-            content: routePrompt
-        }
+            role: 'user',
+            content: routePrompt,
+        },
     ];
 
-    // AIにマップ情報を渡したい場合は、ユーザープロンプトにmapConfigの内容を追加できます。
-    // 現在のプロンプト設計では、AIはユーザーからの経路指示に依存しています。
-    // もしマップ情報を含める場合の例:
-    // if (mapConfig && mapConfig.layout) { // mapConfig.layoutの存在も確認します。
-    //     const userMessage = messages.find(m => m.role === 'user');
-    //     if (userMessage) {
-    //         userMessage.content += "\n\nマップレイアウト:\n" + JSON.stringify(mapConfig.layout);
-    //     }
-    // }
-
-
+    // OpenAI API にリクエストを送信する
     try {
         const response = await fetch(openAIEndpoint, {
-            method: "POST",
+            method: 'POST',
             headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}` // パラメータとして渡されたapiKeyを使用します。
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-                model: "gpt-3.5-turbo", // または、使用したいモデルを指定します。
+                model: 'gpt-3.5-turbo',
                 messages: messages,
-                // 必要に応じて、temperatureやmax_tokensなどの他のパラメータを追加します。
+
+                // NOTE: 必要に応じて、temperatureやmax_tokens などの他のパラメータを追加します。
                 // temperature: 0.7,
                 // max_tokens: 100,
-            })
+            }),
         });
 
+        // レスポンスが正常か確認する
         if (!response.ok) {
-            // エラーレスポンスのJSON解析を試みます。失敗した場合はデフォルトのエラーメッセージを使用します。
-            const errorData = await response.json().catch(() => ({ message: "レスポンスJSONの解析に失敗しました。" }));
-            console.error("OpenAI APIエラー:", response.status, response.statusText, errorData);
-            alert(`OpenAI APIエラーが発生しました: ${response.status} ${response.statusText}${errorData && errorData.message ? ` - ${errorData.message}` : ''}`);
+            const errorData = await response.json().catch(() => ({
+                message: 'レスポンスJSONの解析に失敗しました。',
+            }));
+            alert(`OpenAI APIエラーが発生しました: ${errorData.message}`);
+            console.error('OpenAI APIエラー:', errorData);
             return null;
         }
 
+        // レスポンスを JSON として解析する
         const data = await response.json();
 
-        // APIからの応答にchoicesが含まれているか、またその配列が空でないかを確認します。
+        // API からの応答に choices が含まれているか、またその配列が空でないかを確認する
         if (!data.choices || data.choices.length === 0) {
-            console.warn("OpenAI APIの応答に選択肢 (choices) が含まれていませんでした:", data);
-            alert("AIからの応答に選択肢が含まれていませんでした。");
+            console.warn(
+                'OpenAI APIの応答に選択肢 (choices) が含まれていませんでした:',
+                data
+            );
+            alert('AIからの応答に選択肢が含まれていませんでした。');
             return null;
         }
 
+        // AI からの応答メッセージ（移動指示）を解析する
         const messageContent = data.choices[0].message.content;
-        // AIからの応答メッセージ（移動指示）を解析します。
-        // この部分は、AIの応答形式に応じて調整が必要になる場合があります。
-        // 例えば、moveCharsで定義された文字 (l,r,t,bなど) のような形式を想定しています。
-        // AIからの応答メッセージ（移動指示）を解析します。
-        // 応答から許可された文字 (allowedCharsPattern で定義されたもの) のみを抽出します。
-        const filteredMessageContent = messageContent.replace(filterRegex, "");
 
-        // 次に、フィルタリングされた文字列から連続した移動指示 (extractRegex で定義されたもの) を抽出します。
-        // これにより、"lrtb" のようなシーケンスが一つの要素として抽出されます。
+        // 応答から許可された文字 (allowedCharsPattern で定義されたもの) のみを抽出する
+        const filteredMessageContent = messageContent.replace(filterRegex, '');
+
+        // フィルタリングされた文字列から連続した移動指示 (extractRegex で定義されたもの) を抽出する
+        // これにより、"lrt" のようなシーケンスが一つの要素として抽出される
         const moves = filteredMessageContent.match(extractRegex);
 
-        // 抽出された移動指示が有効か確認します。
-        // AIからの応答は moveChars で定義された文字のみを含むことを期待しています。
+        // 抽出された移動指示が有効か確認する
+        // AI からの応答は movementKeys で定義された文字のみを含むことを期待している
         if (!moves || moves.length === 0 || moves[0].length === 0) {
-            console.warn("AIの応答に認識可能なAI移動指示 (" + allowedCharsList.join(',') + " の文字のみ) が含まれていませんでした。フィルタリング後の内容:", filteredMessageContent, "元の内容:", messageContent);
-            alert("AIの応答から有効な移動指示を抽出できませんでした。");
+            console.warn(
+                'AIの応答に認識可能なAI移動指示 (' +
+                    allowedCharsList.join(',') +
+                    ' の文字のみ) が含まれていませんでした。フィルタリング後の内容:',
+                filteredMessageContent,
+                '元の内容:',
+                messageContent
+            );
+            alert('AIの応答から有効な移動指示を抽出できませんでした。');
             return null;
         }
 
-        // 抽出された移動指示の配列を返します。通常は要素が1つの配列になるはずです。
-        // 例 ["lrrl"]
+        // 抽出された移動指示の配列を返す
         return moves;
-
     } catch (error) {
         // ネットワークエラーやその他の予期せぬエラーをキャッチします。
-        console.error("OpenAIからの経路取得中に予期せぬエラーが発生しました:", error);
-        alert("OpenAIからの経路取得中に予期せぬエラーが発生しました。詳細はコンソールを確認してください。");
+        console.error(
+            'OpenAIからの経路取得中に予期せぬエラーが発生しました:',
+            error
+        );
+        alert(
+            'OpenAIからの経路取得中に予期せぬエラーが発生しました。詳細はコンソールを確認してください。'
+        );
         return null;
     }
 }

@@ -1,49 +1,44 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <title>Map 1</title>
-    <link rel="stylesheet" href="style.css">
-    <script type="module" defer>
-        // 外部モジュールやライブラリ (もしあれば)
-        // (Three.jsはgame.js内で動的にインポートされるため、ここでは不要)
+    <head>
+        <meta charset="UTF-8" />
+        <title>Map 1</title>
+        <link rel="stylesheet" href="./style.css" />
+        <script type="module" defer>
+            import { OPENAI_API_KEY } from '../../secret.js';
+            import { fetchRoutePathWithOpenAI } from '../../ai-fetch.js';
+            import { generateSystemPrompt } from '../../ai-system-prompt.js';
+            import { setupGame, setupPlayerMoverButton } from '../../game.js';
+            import { routePrompt } from './ai-route-prompt.js';
+            import { mapConfig } from './map.js';
 
-        // アプリケーション固有モジュール (パス階層順にソート)
-        import { OPENAI_API_KEY } from '../../secret.js'; // APIキーをインポート
-        import { generateSystemPrompt } from '../../ai-system-prompt.js'; // generateSystemPrompt をインポート
-        import { fetchRoutePathWithOpenAI } from '../../ai-fetch.js';
-        import { setupGame, setupPlayerMoverButton } from '../../game.js';
-        import { mapConfig } from './map.js';
-        import { routePrompt } from './ai-route-prompt.js';
+            // DOM 要素の取得
+            const gameViewerEl = document.getElementById('game-viewer');
+            const startButtonEl = document.getElementById('start-button');
 
-        // システムプロンプトを動的に生成
-        const systemPrompt = generateSystemPrompt(mapConfig.cells);
+            // Game 画面を描画
+            const gameContext = await setupGame({
+                element: gameViewerEl,
+                mapConfig,
+            });
 
-        // DOM要素の取得 (deferにより、このスクリプト実行時にはDOMはパース済み)
-        const container = document.getElementById('container');
-        const aiButton = document.getElementById('aiNavButton');
+            // プレイヤー移動ボタンを設置
+            setupPlayerMoverButton({
+                element: startButtonEl,
+                mapConfig,
+                gameContext,
+                pathFetcher: () =>
+                    fetchRoutePathWithOpenAI({
+                        apiKey: OPENAI_API_KEY,
+                        systemPrompt: generateSystemPrompt(mapConfig),
+                        routePrompt,
+                    }),
+            });
+        </script>
+    </head>
 
-        // Explicitly: NO if(!container) or if(!aiButton) checks here.
-
-        // 初期化処理 (トップレベルawaitを使用)
-        // try...catch ブロックは削除 (エラーはコンソールに出力される)
-        const gameContext = await setupGame({ containerElement: container, mapConfig });
-
-        setupPlayerMoverButton({
-            buttonElement: aiButton,
-            mapConfig,
-            systemPrompt,
-            routePrompt,
-            gameContext,
-            fetchPathFunction: fetchRoutePathWithOpenAI,
-            apiKey: OPENAI_API_KEY // APIキーを渡す
-        });
-
-        console.log("ゲームの初期化スクリプトが完了しました。");
-    </script>
-</head>
-<body>
-    <div id="container" style="width: 100%; height: 80vh;"></div>
-    <button id="aiNavButton">AI ナビゲーション開始</button>
-</body>
+    <body>
+        <div id="game-viewer"></div>
+        <button id="start-button">スタートボタン</button>
+    </body>
 </html>
