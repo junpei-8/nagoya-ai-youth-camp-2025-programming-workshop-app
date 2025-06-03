@@ -1,10 +1,4 @@
-// 1. このファイルを secret.js にコピーしてください。
-// 2. "YOUR_DUMMY_API_KEY_HERE" の部分を、あなたの実際のOpenAI APIキーに置き換えてください。
-// 3. 各マップの index.html ファイルで、<!-- <script src="../secret.js"></script> --> のコメントを解除して、
-//    このファイルが読み込まれるようにしてください。
-
-const OPENAI_API_KEY = 'YOUR_DUMMY_API_KEY_HERE';
-
-// APIキーをグローバルスコープに設定します。
-// これにより、他のスクリプト (例: core.js) から window.OPENAI_API_KEY としてアクセスできます。
-window.OPENAI_API_KEY = OPENAI_API_KEY;
+// secret.example.js
+// Please copy this file to secret.js and enter your actual OpenAI API key.
+// このファイルを secret.js にコピーして、実際のOpenAI APIキーを入力してください。
+export const OPENAI_API_KEY = "YOUR_OPENAI_API_KEY_HERE";
