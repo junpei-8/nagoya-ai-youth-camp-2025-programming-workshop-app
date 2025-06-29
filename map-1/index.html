@@ -19,14 +19,14 @@
             // Game 画面を描画
             const gameContext = await setupGame({
                 element: gameViewerEl,
-                mapConfig,
+                mapConfig: mapConfig,
             });
 
             // プレイヤー移動ボタンを設置
             setupPlayerMoverButton({
                 element: startButtonEl,
-                mapConfig,
-                gameContext,
+                mapConfig: mapConfig,
+                gameContext: gameContext,
                 pathFetcher: () =>
                     fetchRoutePathWithOpenAI({
                         apiKey: OPENAI_API_KEY,

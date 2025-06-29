@@ -39,13 +39,12 @@
 async function loadThreeJS() {
     try {
         const threeJS = await import('https://esm.sh/three@0.177.0');
-        console.log('Three.js の読み込みに成功しました。');
         return threeJS;
 
         // ↓ エラーが発生した場合はエラーをスロー
     } catch (error) {
         console.error('Three.js の動的インポートに失敗しました:', error);
-        alert('Three.jsの読み込みに失敗しました。ゲームを開始できません。');
+        alert('Three.js の読み込みに失敗しました。ゲームを開始できません。');
         throw error;
     }
 }
@@ -66,8 +65,49 @@ async function loadThreeJS() {
  * @param   {HTMLElement} params.element   レンダリング対象の要素
  * @param   {MapConfig}   params.mapConfig マップ設定オブジェクト
  * @returns                                マップコンテキスト
+ * @throws  {Error}                        スタート位置またはエンド位置が見つからない場合にエラーをスロー
  */
 function renderMap({ threeJS, element, mapConfig }) {
+    // スタート位置とエンド位置を検索
+    const layout = mapConfig.layout;
+
+    /**
+     * @type {{
+     *  start: { x: number; y: number };
+     *  end: { x: number; y: number };
+     * }}
+     */
+    const position = {};
+
+    // スタート位置とエンド位置を検索
+    for (let j = 0; j < layout.length; j++) {
+        for (let i = 0; i < layout[j].length; i++) {
+            const cellAlias = layout[j][i];
+            const cellDef = mapConfig.cell[cellAlias];
+
+            // セル定義がない場合はスキップ
+            if (!cellDef) {
+                continue;
+            }
+
+            // セルタイプに応じて位置を設定
+            if (cellDef.type === 'start') {
+                position.start = { x: i, y: j };
+            }
+            if (cellDef.type === 'end') {
+                position.end = { x: i, y: j };
+            }
+        }
+    }
+
+    // スタート位置またはエンド位置が見つからない場合はエラーをスロー
+    if (!position.start) {
+        throw new Error('マップに開始位置が見つかりません。');
+    }
+    if (!position.end) {
+        throw new Error('マップに終了位置が見つかりません。');
+    }
+
     // シーンを作成
     const scene = new threeJS.Scene();
 
@@ -76,7 +116,6 @@ function renderMap({ threeJS, element, mapConfig }) {
     const camera = new threeJS.PerspectiveCamera(45, aspectRatio, 0.1, 1000);
 
     // マップのレイアウトを取得
-    const layout = mapConfig.layout;
     const mapDisplayWidth = layout[0].length;
     const mapDisplayHeight = layout.length;
 
@@ -114,13 +153,12 @@ function renderMap({ threeJS, element, mapConfig }) {
             const geometry = new threeJS.PlaneGeometry(1, 1); // 1x1 サイズの平面ジオメトリ
             let colorValue = 0xcccccc; // 未定義タイル用のデフォルト色
 
+            // セル定義がない場合はスキップ
             if (!cellDef) {
-                console.warn(
-                    `セル '${cellAlias}' の定義が mapConfig.cells に見つかりません。デフォルト色を使用します。`
-                );
                 continue;
             }
 
+            // セルの色を設定
             if (cellDef.color) {
                 const parsedColor = parseInt(
                     cellDef.color.replace('#', ''),
@@ -129,19 +167,26 @@ function renderMap({ threeJS, element, mapConfig }) {
                 colorValue = isNaN(parsedColor) ? colorValue : parsedColor;
             }
 
-            const material = new threeJS.MeshStandardMaterial({
-                color: colorValue,
-                side: threeJS.DoubleSide,
-            });
-            const tile = new threeJS.Mesh(geometry, material);
+            // セルのマテリアルを作成
+            const tile = new threeJS.Mesh(
+                geometry,
+                new threeJS.MeshStandardMaterial({
+                    color: colorValue,
+                    side: threeJS.DoubleSide,
+                })
+            );
+
+            // セルの回転と位置を設定
             tile.rotation.x = -Math.PI / 2; // X軸を中心に-90度回転して床にする
             tile.position.set(i, 0, j); // XZ平面に配置
+
+            // セルをシーンに追加
             scene.add(tile);
         }
     }
 
-    renderer.render(scene, camera); // 初期レンダリング
-    console.log('マップのレンダリングが完了しました。'); // Map rendered.
+    // 初期レンダリング
+    renderer.render(scene, camera);
 
     // ウィンドウリサイズ時の処理
     window.addEventListener('resize', () => {
@@ -153,7 +198,12 @@ function renderMap({ threeJS, element, mapConfig }) {
         }
     });
 
-    return { scene, camera, renderer };
+    return {
+        scene,
+        camera,
+        renderer,
+        position,
+    };
 }
 
 /**
@@ -161,49 +211,32 @@ function renderMap({ threeJS, element, mapConfig }) {
  *
  * @param   {object}          params            プレイヤー作成パラメータ
  * @param   {ThreeJS}         params.threeJS    Three.js インスタンス
- * @param   {MapConfig}       params.mapConfig  マップ設定オブジェクト
  * @param   {MapContext}      params.mapContext マップコンテキスト
  * @returns                                     プレイヤー
  */
-function createPlayer({ threeJS, mapConfig, mapContext }) {
-    const layout = mapConfig.layout;
-    let startX, startY;
+function createPlayer({ threeJS, mapContext }) {
+    // プレイヤーを作成
+    const player = new threeJS.Mesh(
+        // プレイヤーの形状
+        new threeJS.BoxGeometry(0.8, 0.8, 0.8),
+        // プレイヤーの色
+        new threeJS.MeshStandardMaterial({
+            color: 0x4444ff,
+        })
+    );
 
-    // スタート地点を検索
-    let startPositionFound = false;
-    for (let j = 0; j < layout.length; j++) {
-        const rowIndex = layout[j].findIndex(
-            (cellAlias) => mapConfig.cell[cellAlias]?.type === 'start'
-        );
-        if (rowIndex !== -1) {
-            startX = rowIndex;
-            startY = j;
-            startPositionFound = true;
-            break;
-        }
-    }
+    // プレイヤーの位置を設定
+    player.position.set(
+        mapContext.position.start.x,
+        0.5,
+        mapContext.position.start.y
+    );
 
-    if (!startPositionFound) {
-        console.error(
-            "マップに開始地点 's' が見つかりません。プレイヤーを (0,0) に配置します。"
-        );
-        startX = 0; // フォールバック位置
-        startY = 0; // フォールバック位置
-    }
-
-    const playerGeometry = new threeJS.BoxGeometry(0.8, 0.8, 0.8); // プレイヤーの形状
-    const playerMaterial = new threeJS.MeshStandardMaterial({
-        color: 0x4444ff,
-    }); // プレイヤーの色
-
-    const player = new threeJS.Mesh(playerGeometry, playerMaterial);
-    player.position.set(startX, 0.5, startY); // 床より少し上に配置
+    // プレイヤーをシーンに追加
     mapContext.scene.add(player);
 
     // プレイヤー表示のための初期レンダリング
-    if (mapContext.renderer && mapContext.camera) {
-        mapContext.renderer.render(mapContext.scene, mapContext.camera);
-    }
+    mapContext.renderer.render(mapContext.scene, mapContext.camera);
 
     return player;
 }
@@ -235,7 +268,6 @@ export async function setupGame({ element, mapConfig }) {
     // プレイヤーを作成
     const player = createPlayer({
         threeJS,
-        mapConfig,
         mapContext,
     });
 

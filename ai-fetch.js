@@ -37,6 +37,8 @@ export async function fetchRoutePathWithOpenAI({
 
     // OpenAI API にリクエストを送信する
     try {
+        console.debug('OpenAI API にリクエストを送信中...');
+
         const response = await fetch(openAIEndpoint, {
             method: 'POST',
             headers: {
@@ -46,20 +48,16 @@ export async function fetchRoutePathWithOpenAI({
             body: JSON.stringify({
                 model: 'gpt-3.5-turbo',
                 messages: messages,
-
-                // NOTE: 必要に応じて、temperatureやmax_tokens などの他のパラメータを追加します。
-                // temperature: 0.7,
-                // max_tokens: 100,
+                temperature: 0.0,
             }),
         });
 
         // レスポンスが正常か確認する
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({
-                message: 'レスポンスJSONの解析に失敗しました。',
-            }));
-            alert(`OpenAI APIエラーが発生しました: ${errorData.message}`);
-            console.error('OpenAI APIエラー:', errorData);
+            const errorData = await response.json().catch(() => null);
+            const errorMessage = `OpenAI API エラー: ${errorData?.message}`;
+            console.error(errorMessage);
+            alert(errorMessage);
             return null;
         }
 
@@ -68,11 +66,10 @@ export async function fetchRoutePathWithOpenAI({
 
         // API からの応答に choices が含まれているか、またその配列が空でないかを確認する
         if (!data.choices || data.choices.length === 0) {
-            console.warn(
-                'OpenAI APIの応答に選択肢 (choices) が含まれていませんでした:',
-                data
-            );
-            alert('AIからの応答に選択肢が含まれていませんでした。');
+            const errorMessage =
+                'OpenAI APIの応答に選択肢 (choices) が含まれていませんでした。';
+            console.error(errorMessage);
+            alert(errorMessage);
             return null;
         }
 
@@ -89,14 +86,7 @@ export async function fetchRoutePathWithOpenAI({
         // 抽出された移動指示が有効か確認する
         // AI からの応答は movementKeys で定義された文字のみを含むことを期待している
         if (!moves || moves.length === 0 || moves[0].length === 0) {
-            console.warn(
-                'AIの応答に認識可能なAI移動指示 (' +
-                    allowedCharsList.join(',') +
-                    ' の文字のみ) が含まれていませんでした。フィルタリング後の内容:',
-                filteredMessageContent,
-                '元の内容:',
-                messageContent
-            );
+            console.warn('AIの応答から有効な移動指示を抽出できませんでした。');
             alert('AIの応答から有効な移動指示を抽出できませんでした。');
             return null;
         }
