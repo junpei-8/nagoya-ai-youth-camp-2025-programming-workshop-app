@@ -49,7 +49,6 @@ async function loadThreeJS() {
     }
 }
 
-
 // ######################
 // ## ゲームのセットアップ ##
 // ######################
@@ -118,23 +117,24 @@ function renderMap({ threeJS, element, mapConfig }) {
 
     // game-viewer のサイズから正方形のサイズを計算
     const minSize = Math.min(element.offsetWidth, element.offsetHeight);
-    
+
     // マップの最大サイズを取得
     const mapMaxSize = Math.max(mapDisplayWidth, mapDisplayHeight);
-    
+
     // FOVを計算して盤面がcanvas内に確実に収まるようにする
     const cameraDistance = mapMaxSize * 2.2; // さらに遠くから見る
     const topMargin = 2.5; // 上部用の追加マージン
     const halfMapSizeWithMargin = mapMaxSize / 2 + topMargin;
-    const fov = 2 * Math.atan(halfMapSizeWithMargin / cameraDistance) * (180 / Math.PI);
-    
+    const fov =
+        2 * Math.atan(halfMapSizeWithMargin / cameraDistance) * (180 / Math.PI);
+
     // PerspectiveCamera を使用して遠近感を出す
     const camera = new threeJS.PerspectiveCamera(fov, 1, 0.1, 1000);
 
     // カメラの位置を設定（台形表示とcanvas全体表示を実現）
-    const cameraHeight = cameraDistance * 0.65; // 高さを少し下げる
-    const cameraOffsetZ = cameraDistance * 0.25; // Z方向のオフセットを減らして上下のバランスを改善
-    
+    const cameraHeight = cameraDistance * 0.5; // 高さを下げてより横から見る
+    const cameraOffsetZ = cameraDistance * 0.5; // Z方向のオフセットを増やしてより斜めから見る
+
     camera.position.set(
         (mapDisplayWidth - 1) / 2,
         cameraHeight,
@@ -143,7 +143,11 @@ function renderMap({ threeJS, element, mapConfig }) {
 
     // カメラの向きを設定
     camera.lookAt(
-        new threeJS.Vector3((mapDisplayWidth - 1) / 2, 0, (mapDisplayHeight - 1) / 2)
+        new threeJS.Vector3(
+            (mapDisplayWidth - 1) / 2,
+            0,
+            (mapDisplayHeight - 1) / 2
+        )
     );
 
     // レンダラーを作成
@@ -161,13 +165,21 @@ function renderMap({ threeJS, element, mapConfig }) {
     scene.add(directionalLight);
 
     // ベースとなる大きな盤面を作成
-    const boardGeometry = new threeJS.BoxGeometry(mapDisplayWidth, 0.3, mapDisplayHeight);
+    const boardGeometry = new threeJS.BoxGeometry(
+        mapDisplayWidth,
+        0.3,
+        mapDisplayHeight
+    );
     const boardMaterial = new threeJS.MeshStandardMaterial({
-        color: 0x8B6F47, // 木目調の色
-        side: threeJS.DoubleSide
+        color: 0x8b6f47, // 木目調の色
+        side: threeJS.DoubleSide,
     });
     const board = new threeJS.Mesh(boardGeometry, boardMaterial);
-    board.position.set((mapDisplayWidth - 1) / 2, -0.15, (mapDisplayHeight - 1) / 2);
+    board.position.set(
+        (mapDisplayWidth - 1) / 2,
+        -0.15,
+        (mapDisplayHeight - 1) / 2
+    );
     scene.add(board);
 
     // マップタイルを作成
@@ -295,31 +307,44 @@ export async function setupGame({ element, mapConfig }) {
     window.addEventListener('resize', () => {
         if (mapContext.camera && mapContext.renderer && element) {
             // game-viewer のサイズから正方形のサイズを再計算
-            const newMinSize = Math.min(element.offsetWidth, element.offsetHeight);
-            
+            const newMinSize = Math.min(
+                element.offsetWidth,
+                element.offsetHeight
+            );
+
             // マップの最大サイズとカメラ設定を再計算
-            const mapMaxSize = Math.max(mapContext.mapDisplayWidth, mapContext.mapDisplayHeight);
+            const mapMaxSize = Math.max(
+                mapContext.mapDisplayWidth,
+                mapContext.mapDisplayHeight
+            );
             const cameraDistance = mapMaxSize * 2.2;
             const topMargin = 2.5;
             const halfMapSizeWithMargin = mapMaxSize / 2 + topMargin;
-            const fov = 2 * Math.atan(halfMapSizeWithMargin / cameraDistance) * (180 / Math.PI);
-            
+            const fov =
+                2 *
+                Math.atan(halfMapSizeWithMargin / cameraDistance) *
+                (180 / Math.PI);
+
             // カメラのFOVを更新
             mapContext.camera.fov = fov;
             mapContext.camera.updateProjectionMatrix();
-            
+
             // カメラの位置を再計算
-            const cameraHeight = cameraDistance * 0.65;
-            const cameraOffsetZ = cameraDistance * 0.25;
+            const cameraHeight = cameraDistance * 0.5; // 高さを下げてより横から見る
+            const cameraOffsetZ = cameraDistance * 0.5; // Z方向のオフセットを増やしてより斜めから見る
             mapContext.camera.position.set(
                 (mapContext.mapDisplayWidth - 1) / 2,
                 cameraHeight,
                 (mapContext.mapDisplayHeight - 1) / 2 + cameraOffsetZ
             );
             mapContext.camera.lookAt(
-                new threeJS.Vector3((mapContext.mapDisplayWidth - 1) / 2, 0, (mapContext.mapDisplayHeight - 1) / 2)
+                new threeJS.Vector3(
+                    (mapContext.mapDisplayWidth - 1) / 2,
+                    0,
+                    (mapContext.mapDisplayHeight - 1) / 2
+                )
             );
-            
+
             // レンダラーのサイズを正方形に更新
             mapContext.renderer.setSize(newMinSize, newMinSize);
             mapContext.renderer.render(mapContext.scene, mapContext.camera);
@@ -356,7 +381,15 @@ export const movementKeys = {
  * @param {string}      params.direction 移動方向
  */
 export function movePlayer({ context, direction }) {
-    const { threeJS, scene, camera, renderer, player, mapDisplayWidth, mapDisplayHeight } = context;
+    const {
+        threeJS,
+        scene,
+        camera,
+        renderer,
+        player,
+        mapDisplayWidth,
+        mapDisplayHeight,
+    } = context;
 
     const stepVec = { x: 0, z: 0 }; // 移動ベクトル
     switch (direction) {
@@ -384,17 +417,33 @@ export function movePlayer({ context, direction }) {
     const currentX = Math.round(player.position.x);
     const currentZ = Math.round(player.position.z);
     const startPos = player.position.clone();
-    
+
     const targetX = currentX + stepVec.x;
     const targetZ = currentZ + stepVec.z;
-    
+
     // 盤外への移動を防ぐ（デバッグ情報付き）
-    console.log('Current:', currentX, currentZ, 'Target:', targetX, targetZ, 'Map size:', mapDisplayWidth, 'x', mapDisplayHeight);
-    if (targetX < 0 || targetX >= mapDisplayWidth || targetZ < 0 || targetZ >= mapDisplayHeight) {
+    console.log(
+        'Current:',
+        currentX,
+        currentZ,
+        'Target:',
+        targetX,
+        targetZ,
+        'Map size:',
+        mapDisplayWidth,
+        'x',
+        mapDisplayHeight
+    );
+    if (
+        targetX < 0 ||
+        targetX >= mapDisplayWidth ||
+        targetZ < 0 ||
+        targetZ >= mapDisplayHeight
+    ) {
         console.log('盤外への移動をブロックしました');
         return; // 盤外への移動はキャンセル
     }
-    
+
     // 最終位置も整数座標にする
     const endPos = new threeJS.Vector3(targetX, player.position.y, targetZ);
 
@@ -432,9 +481,14 @@ export function setupPlayerMoverButton({
     pathFetcher,
 }) {
     const { scene, camera, renderer, player } = gameContext;
-    
+
     // GameContextにmapDisplayWidthとmapDisplayHeightが含まれているか確認
-    console.log('GameContext check:', gameContext.mapDisplayWidth, 'x', gameContext.mapDisplayHeight);
+    console.log(
+        'GameContext check:',
+        gameContext.mapDisplayWidth,
+        'x',
+        gameContext.mapDisplayHeight
+    );
 
     element.addEventListener('click', async () => {
         console.log('AIによる経路指示に基づくプレイヤー移動を開始します...');
