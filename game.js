@@ -123,16 +123,17 @@ function renderMap({ threeJS, element, mapConfig }) {
     const mapMaxSize = Math.max(mapDisplayWidth, mapDisplayHeight);
     
     // FOVを計算して盤面がcanvas内に確実に収まるようにする
-    const cameraDistance = mapMaxSize * 1.5; // より遠くから見る
-    const halfMapSize = mapMaxSize / 2 + 1.5; // 十分な余裕を持たせる
-    const fov = 2 * Math.atan(halfMapSize / cameraDistance) * (180 / Math.PI);
+    const cameraDistance = mapMaxSize * 2.2; // さらに遠くから見る
+    const topMargin = 2.5; // 上部用の追加マージン
+    const halfMapSizeWithMargin = mapMaxSize / 2 + topMargin;
+    const fov = 2 * Math.atan(halfMapSizeWithMargin / cameraDistance) * (180 / Math.PI);
     
     // PerspectiveCamera を使用して遠近感を出す
     const camera = new threeJS.PerspectiveCamera(fov, 1, 0.1, 1000);
 
     // カメラの位置を設定（台形表示とcanvas全体表示を実現）
-    const cameraHeight = cameraDistance * 0.7; // 高さ
-    const cameraOffsetZ = cameraDistance * 0.4; // Z方向のオフセット
+    const cameraHeight = cameraDistance * 0.65; // 高さを少し下げる
+    const cameraOffsetZ = cameraDistance * 0.25; // Z方向のオフセットを減らして上下のバランスを改善
     
     camera.position.set(
         (mapDisplayWidth - 1) / 2,
@@ -244,11 +245,11 @@ function createPlayer({ threeJS, mapContext }) {
         })
     );
 
-    // プレイヤーの位置を設定（盤面の上に配置）
+    // プレイヤーの位置を設定（盤面の上に配置、整数座標に丸める）
     player.position.set(
-        mapContext.position.start.x,
+        Math.round(mapContext.position.start.x),
         0.4, // 盤面の上面(Y=0)からプレイヤーの半分の高さ(0.4)分上に配置
-        mapContext.position.start.y
+        Math.round(mapContext.position.start.y)
     );
 
     // プレイヤーをシーンに追加
@@ -298,17 +299,18 @@ export async function setupGame({ element, mapConfig }) {
             
             // マップの最大サイズとカメラ設定を再計算
             const mapMaxSize = Math.max(mapContext.mapDisplayWidth, mapContext.mapDisplayHeight);
-            const cameraDistance = mapMaxSize * 1.5;
-            const halfMapSize = mapMaxSize / 2 + 1.5;
-            const fov = 2 * Math.atan(halfMapSize / cameraDistance) * (180 / Math.PI);
+            const cameraDistance = mapMaxSize * 2.2;
+            const topMargin = 2.5;
+            const halfMapSizeWithMargin = mapMaxSize / 2 + topMargin;
+            const fov = 2 * Math.atan(halfMapSizeWithMargin / cameraDistance) * (180 / Math.PI);
             
             // カメラのFOVを更新
             mapContext.camera.fov = fov;
             mapContext.camera.updateProjectionMatrix();
             
             // カメラの位置を再計算
-            const cameraHeight = cameraDistance * 0.7;
-            const cameraOffsetZ = cameraDistance * 0.4;
+            const cameraHeight = cameraDistance * 0.65;
+            const cameraOffsetZ = cameraDistance * 0.25;
             mapContext.camera.position.set(
                 (mapContext.mapDisplayWidth - 1) / 2,
                 cameraHeight,
@@ -378,17 +380,22 @@ export function movePlayer({ context, direction }) {
             return; // 未知の方向の場合は何もしない
     }
 
-    // 現在位置と目標位置を計算
+    // 現在位置を整数に丸めてから計算（浮動小数点誤差を防ぐ）
+    const currentX = Math.round(player.position.x);
+    const currentZ = Math.round(player.position.z);
     const startPos = player.position.clone();
-    const targetX = player.position.x + stepVec.x;
-    const targetZ = player.position.z + stepVec.z;
     
-    // 盤外への移動を防ぐ
+    const targetX = currentX + stepVec.x;
+    const targetZ = currentZ + stepVec.z;
+    
+    // 盤外への移動を防ぐ（デバッグ情報付き）
+    console.log('Current:', currentX, currentZ, 'Target:', targetX, targetZ, 'Map size:', mapDisplayWidth, 'x', mapDisplayHeight);
     if (targetX < 0 || targetX >= mapDisplayWidth || targetZ < 0 || targetZ >= mapDisplayHeight) {
         console.log('盤外への移動をブロックしました');
         return; // 盤外への移動はキャンセル
     }
     
+    // 最終位置も整数座標にする
     const endPos = new threeJS.Vector3(targetX, player.position.y, targetZ);
 
     // アニメーションの設定
@@ -425,6 +432,9 @@ export function setupPlayerMoverButton({
     pathFetcher,
 }) {
     const { scene, camera, renderer, player } = gameContext;
+    
+    // GameContextにmapDisplayWidthとmapDisplayHeightが含まれているか確認
+    console.log('GameContext check:', gameContext.mapDisplayWidth, 'x', gameContext.mapDisplayHeight);
 
     element.addEventListener('click', async () => {
         console.log('AIによる経路指示に基づくプレイヤー移動を開始します...');
@@ -453,8 +463,8 @@ export function setupPlayerMoverButton({
             return;
         }
 
-        // プレイヤーをスタート地点に移動
-        player.position.set(startX, 0.4, startY);
+        // プレイヤーをスタート地点に移動（整数座標に丸める）
+        player.position.set(Math.round(startX), 0.4, Math.round(startY));
         renderer.render(scene, camera);
 
         try {
