@@ -19,27 +19,27 @@ export const mapConfig = {
         s: {
             type: 'start',
             image: 'images/start_tile.png',
-            color: '#4444FF',
+            color: '#6B7ADB',
         },
         e: {
             type: 'end',
             image: 'images/end_tile.png',
-            color: '#FFD700',
+            color: '#F59E0B',
         },
         t: {
             type: 'trap',
             image: 'images/trap_tile.png',
-            color: '#FF0000',
+            color: '#DC2626',
         },
         o: {
             type: 'object',
             image: 'images/object1_tile.png',
-            color: '#00FF00',
+            color: '#92400E',
         },
         n: {
             type: 'normal',
             image: 'images/normal_tile.png',
-            color: '#888888',
+            color: '#D4A574',
         },
     },
 };

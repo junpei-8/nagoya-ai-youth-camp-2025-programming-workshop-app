@@ -49,6 +49,7 @@ async function loadThreeJS() {
     }
 }
 
+
 // ######################
 // ## ゲームのセットアップ ##
 // ######################
@@ -111,19 +112,32 @@ function renderMap({ threeJS, element, mapConfig }) {
     // シーンを作成
     const scene = new threeJS.Scene();
 
-    // カメラを作成
-    const aspectRatio = element.offsetWidth / element.offsetHeight;
-    const camera = new threeJS.PerspectiveCamera(45, aspectRatio, 0.1, 1000);
-
     // マップのレイアウトを取得
     const mapDisplayWidth = layout[0].length;
     const mapDisplayHeight = layout.length;
 
-    // カメラの位置を設定
+    // game-viewer のサイズから正方形のサイズを計算
+    const minSize = Math.min(element.offsetWidth, element.offsetHeight);
+    
+    // マップの最大サイズを取得
+    const mapMaxSize = Math.max(mapDisplayWidth, mapDisplayHeight);
+    
+    // FOVを計算して盤面がcanvas内に確実に収まるようにする
+    const cameraDistance = mapMaxSize * 1.5; // より遠くから見る
+    const halfMapSize = mapMaxSize / 2 + 1.5; // 十分な余裕を持たせる
+    const fov = 2 * Math.atan(halfMapSize / cameraDistance) * (180 / Math.PI);
+    
+    // PerspectiveCamera を使用して遠近感を出す
+    const camera = new threeJS.PerspectiveCamera(fov, 1, 0.1, 1000);
+
+    // カメラの位置を設定（台形表示とcanvas全体表示を実現）
+    const cameraHeight = cameraDistance * 0.7; // 高さ
+    const cameraOffsetZ = cameraDistance * 0.4; // Z方向のオフセット
+    
     camera.position.set(
         mapDisplayWidth / 2,
-        mapDisplayWidth * 1.5,
-        mapDisplayHeight / 2
+        cameraHeight,
+        mapDisplayHeight / 2 + cameraOffsetZ
     );
 
     // カメラの向きを設定
@@ -133,7 +147,7 @@ function renderMap({ threeJS, element, mapConfig }) {
 
     // レンダラーを作成
     const renderer = new threeJS.WebGLRenderer({ antialias: true });
-    renderer.setSize(element.offsetWidth, element.offsetHeight);
+    renderer.setSize(minSize, minSize);
     element.appendChild(renderer.domElement);
 
     // 環境光を作成
@@ -145,12 +159,23 @@ function renderMap({ threeJS, element, mapConfig }) {
     directionalLight.position.set(0, 10, 0);
     scene.add(directionalLight);
 
+    // ベースとなる大きな盤面を作成
+    const boardGeometry = new threeJS.BoxGeometry(mapDisplayWidth, 0.3, mapDisplayHeight);
+    const boardMaterial = new threeJS.MeshStandardMaterial({
+        color: 0x8B6F47, // 木目調の色
+        side: threeJS.DoubleSide
+    });
+    const board = new threeJS.Mesh(boardGeometry, boardMaterial);
+    board.position.set(mapDisplayWidth / 2 - 0.5, -0.15, mapDisplayHeight / 2 - 0.5);
+    scene.add(board);
+
     // マップタイルを作成
     for (let j = 0; j < mapDisplayHeight; j++) {
         for (let i = 0; i < mapDisplayWidth; i++) {
             const cellAlias = layout[j][i];
             const cellDef = mapConfig.cell[cellAlias];
-            const geometry = new threeJS.PlaneGeometry(1, 1); // 1x1 サイズの平面ジオメトリ
+            // タイルを平面ジオメトリで作成（盤面の上に配置）
+            const geometry = new threeJS.PlaneGeometry(0.98, 0.98);
             let colorValue = 0xcccccc; // 未定義タイル用のデフォルト色
 
             // セル定義がない場合はスキップ
@@ -176,9 +201,9 @@ function renderMap({ threeJS, element, mapConfig }) {
                 })
             );
 
-            // セルの回転と位置を設定
-            tile.rotation.x = -Math.PI / 2; // X軸を中心に-90度回転して床にする
-            tile.position.set(i, 0, j); // XZ平面に配置
+            // セルの位置を設定
+            tile.rotation.x = -Math.PI / 2; // X軸を中心に-90度回転して水平に
+            tile.position.set(i, 0.01, j); // 盤面の上に少し浮かせて配置
 
             // セルをシーンに追加
             scene.add(tile);
@@ -188,21 +213,15 @@ function renderMap({ threeJS, element, mapConfig }) {
     // 初期レンダリング
     renderer.render(scene, camera);
 
-    // ウィンドウリサイズ時の処理
-    window.addEventListener('resize', () => {
-        if (camera && renderer && element) {
-            camera.aspect = element.offsetWidth / element.offsetHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(element.offsetWidth, element.offsetHeight);
-            renderer.render(scene, camera); // リサイズ後にもレンダリング
-        }
-    });
+    // リサイズハンドラーは setupGame で設定される
 
     return {
         scene,
         camera,
         renderer,
         position,
+        mapDisplayWidth,
+        mapDisplayHeight,
     };
 }
 
@@ -225,10 +244,10 @@ function createPlayer({ threeJS, mapContext }) {
         })
     );
 
-    // プレイヤーの位置を設定
+    // プレイヤーの位置を設定（盤面の上に配置）
     player.position.set(
         mapContext.position.start.x,
-        0.5,
+        0.4, // 盤面の上面(Y=0)からプレイヤーの半分の高さ(0.4)分上に配置
         mapContext.position.start.y
     );
 
@@ -269,6 +288,40 @@ export async function setupGame({ element, mapConfig }) {
     const player = createPlayer({
         threeJS,
         mapContext,
+    });
+
+    // ウィンドウリサイズ処理を更新
+    window.addEventListener('resize', () => {
+        if (mapContext.camera && mapContext.renderer && element) {
+            // game-viewer のサイズから正方形のサイズを再計算
+            const newMinSize = Math.min(element.offsetWidth, element.offsetHeight);
+            
+            // マップの最大サイズとカメラ設定を再計算
+            const mapMaxSize = Math.max(mapContext.mapDisplayWidth, mapContext.mapDisplayHeight);
+            const cameraDistance = mapMaxSize * 1.5;
+            const halfMapSize = mapMaxSize / 2 + 1.5;
+            const fov = 2 * Math.atan(halfMapSize / cameraDistance) * (180 / Math.PI);
+            
+            // カメラのFOVを更新
+            mapContext.camera.fov = fov;
+            mapContext.camera.updateProjectionMatrix();
+            
+            // カメラの位置を再計算
+            const cameraHeight = cameraDistance * 0.7;
+            const cameraOffsetZ = cameraDistance * 0.4;
+            mapContext.camera.position.set(
+                mapContext.mapDisplayWidth / 2,
+                cameraHeight,
+                mapContext.mapDisplayHeight / 2 + cameraOffsetZ
+            );
+            mapContext.camera.lookAt(
+                new threeJS.Vector3(mapContext.mapDisplayWidth / 2, 0, mapContext.mapDisplayHeight / 2)
+            );
+            
+            // レンダラーのサイズを正方形に更新
+            mapContext.renderer.setSize(newMinSize, newMinSize);
+            mapContext.renderer.render(mapContext.scene, mapContext.camera);
+        }
     });
 
     // ゲームコンテキストを返す
@@ -394,7 +447,7 @@ export function setupPlayerMoverButton({
         }
 
         // プレイヤーをスタート地点に移動
-        player.position.set(startX, 0.5, startY);
+        player.position.set(startX, 0.4, startY);
         renderer.render(scene, camera);
 
         try {
