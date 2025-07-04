@@ -58,6 +58,41 @@ async function loadThreeJS() {
  */
 
 /**
+ * カメラの設定を更新する共通関数
+ * @param {object} params パラメータ
+ * @param {object} params.camera カメラオブジェクト
+ * @param {number} params.mapDisplayWidth マップの幅
+ * @param {number} params.mapDisplayHeight マップの高さ
+ */
+function updateCameraSettings({ camera, mapDisplayWidth, mapDisplayHeight }) {
+    // マップの最大サイズを取得
+    const mapMaxSize = Math.max(mapDisplayWidth, mapDisplayHeight);
+
+    // FOVを計算して盤面がcanvas内に確実に収まるようにする
+    const cameraDistance = mapMaxSize * 2.2;
+    const topMargin = 2.5;
+    const halfMapSizeWithMargin = mapMaxSize / 2 + topMargin;
+    const fov =
+        2 * Math.atan(halfMapSizeWithMargin / cameraDistance) * (180 / Math.PI);
+
+    // カメラのFOVを更新
+    camera.fov = fov;
+    camera.updateProjectionMatrix();
+
+    // カメラの位置を設定
+    const cameraHeight = cameraDistance * 0.52;
+    const cameraOffsetZ = cameraDistance * 0.48;
+    camera.position.set(
+        (mapDisplayWidth - 1) / 2,
+        cameraHeight,
+        (mapDisplayHeight - 1) / 2 + cameraOffsetZ
+    );
+
+    // カメラの向きを設定
+    camera.lookAt((mapDisplayWidth - 1) / 2, 0, (mapDisplayHeight - 1) / 2);
+}
+
+/**
  * マップをレンダリングし、基本的なシーンを設定する。
  *
  * @param   {object}      params           レンダリングパラメータ
@@ -118,41 +153,16 @@ function renderMap({ threeJS, element, mapConfig }) {
     // game-viewer のサイズから正方形のサイズを計算
     const minSize = Math.min(element.offsetWidth, element.offsetHeight);
 
-    // マップの最大サイズを取得
-    const mapMaxSize = Math.max(mapDisplayWidth, mapDisplayHeight);
+    // PerspectiveCamera を作成（初期FOVは後で設定）
+    const camera = new threeJS.PerspectiveCamera(45, 1, 0.1, 1000);
 
-    // FOVを計算して盤面がcanvas内に確実に収まるようにする
-    const cameraDistance = mapMaxSize * 2.2; // さらに遠くから見る
-    const topMargin = 2.5; // 上部用の追加マージン
-    const halfMapSizeWithMargin = mapMaxSize / 2 + topMargin;
-    const fov =
-        2 * Math.atan(halfMapSizeWithMargin / cameraDistance) * (180 / Math.PI);
-
-    // PerspectiveCamera を使用して遠近感を出す
-    const camera = new threeJS.PerspectiveCamera(fov, 1, 0.1, 1000);
-
-    // カメラの位置を設定（台形表示とcanvas全体表示を実現）
-    const cameraHeight = cameraDistance * 0.5; // 高さを下げてより横から見る
-    const cameraOffsetZ = cameraDistance * 0.5; // Z方向のオフセットを増やしてより斜めから見る
-
-    camera.position.set(
-        (mapDisplayWidth - 1) / 2,
-        cameraHeight,
-        (mapDisplayHeight - 1) / 2 + cameraOffsetZ
-    );
-
-    // カメラの向きを設定
-    camera.lookAt(
-        new threeJS.Vector3(
-            (mapDisplayWidth - 1) / 2,
-            0,
-            (mapDisplayHeight - 1) / 2
-        )
-    );
+    // カメラの設定を更新
+    updateCameraSettings({ camera, mapDisplayWidth, mapDisplayHeight });
 
     // レンダラーを作成
     const renderer = new threeJS.WebGLRenderer({ antialias: true });
     renderer.setSize(minSize, minSize);
+    renderer.setClearColor(0xffffff); // 背景色を白に設定
     element.appendChild(renderer.domElement);
 
     // 環境光を作成
@@ -227,7 +237,6 @@ function renderMap({ threeJS, element, mapConfig }) {
     renderer.render(scene, camera);
 
     // リサイズハンドラーは setupGame で設定される
-
     return {
         scene,
         camera,
@@ -312,38 +321,12 @@ export async function setupGame({ element, mapConfig }) {
                 element.offsetHeight
             );
 
-            // マップの最大サイズとカメラ設定を再計算
-            const mapMaxSize = Math.max(
-                mapContext.mapDisplayWidth,
-                mapContext.mapDisplayHeight
-            );
-            const cameraDistance = mapMaxSize * 2.2;
-            const topMargin = 2.5;
-            const halfMapSizeWithMargin = mapMaxSize / 2 + topMargin;
-            const fov =
-                2 *
-                Math.atan(halfMapSizeWithMargin / cameraDistance) *
-                (180 / Math.PI);
-
-            // カメラのFOVを更新
-            mapContext.camera.fov = fov;
-            mapContext.camera.updateProjectionMatrix();
-
-            // カメラの位置を再計算
-            const cameraHeight = cameraDistance * 0.5; // 高さを下げてより横から見る
-            const cameraOffsetZ = cameraDistance * 0.5; // Z方向のオフセットを増やしてより斜めから見る
-            mapContext.camera.position.set(
-                (mapContext.mapDisplayWidth - 1) / 2,
-                cameraHeight,
-                (mapContext.mapDisplayHeight - 1) / 2 + cameraOffsetZ
-            );
-            mapContext.camera.lookAt(
-                new threeJS.Vector3(
-                    (mapContext.mapDisplayWidth - 1) / 2,
-                    0,
-                    (mapContext.mapDisplayHeight - 1) / 2
-                )
-            );
+            // カメラの設定を更新
+            updateCameraSettings({
+                camera: mapContext.camera,
+                mapDisplayWidth: mapContext.mapDisplayWidth,
+                mapDisplayHeight: mapContext.mapDisplayHeight,
+            });
 
             // レンダラーのサイズを正方形に更新
             mapContext.renderer.setSize(newMinSize, newMinSize);
