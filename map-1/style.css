@@ -14,9 +14,11 @@ body {
 #game-viewer {
     width: 80vw;
     height: 80vh;
-    border-radius: 24px;
-    margin-bottom: 24px;
     overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 24px;
 }
 
 #start-button {

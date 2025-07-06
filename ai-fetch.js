@@ -1,7 +1,7 @@
-import { movementKeys } from './game.js'; // game.js から movementKeys をインポート
+import { movementKey } from './game.js'; // game.js から movementKey をインポート
 
-// movementKeys を使用して正規表現を動的に生成
-const allowedCharsList = Object.values(movementKeys);
+// movementKey を使用して正規表現を動的に生成
+const allowedCharsList = Object.values(movementKey);
 const allowedCharsPattern = allowedCharsList.join('');
 const filterRegex = new RegExp(`[^${allowedCharsPattern}]`, 'g');
 const extractRegex = new RegExp(`[${allowedCharsPattern}]+`, 'g');
@@ -84,7 +84,7 @@ export async function fetchRoutePathWithOpenAI({
         const moves = filteredMessageContent.match(extractRegex);
 
         // 抽出された移動指示が有効か確認する
-        // AI からの応答は movementKeys で定義された文字のみを含むことを期待している
+        // AI からの応答は movementKey で定義された文字のみを含むことを期待している
         if (!moves || moves.length === 0 || moves[0].length === 0) {
             console.warn('AIの応答から有効な移動指示を抽出できませんでした。');
             alert('AIの応答から有効な移動指示を抽出できませんでした。');

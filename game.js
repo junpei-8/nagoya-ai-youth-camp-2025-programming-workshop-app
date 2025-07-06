@@ -349,11 +349,11 @@ export async function setupGame({ element, mapConfig }) {
 /**
  * 移動コマンド文字の定義。
  */
-export const movementKeys = {
-    LEFT: 'l',
-    RIGHT: 'r',
-    UP: 'u',
-    DOWN: 'd',
+export const movementKey = {
+    LEFT: '←',
+    RIGHT: '→',
+    UP: '↑',
+    DOWN: '↓',
 };
 
 /**
@@ -376,19 +376,19 @@ export function movePlayer({ context, direction }) {
 
     const stepVec = { x: 0, z: 0 }; // 移動ベクトル
     switch (direction) {
-        case movementKeys.RIGHT:
+        case movementKey.RIGHT:
             stepVec.x = 1;
             break; // 右 (Right)
 
-        case movementKeys.LEFT:
+        case movementKey.LEFT:
             stepVec.x = -1;
             break; // 左 (Left)
 
-        case movementKeys.UP:
+        case movementKey.UP:
             stepVec.z = -1;
             break; // 上 (Up)
 
-        case movementKeys.DOWN:
+        case movementKey.DOWN:
             stepVec.z = 1;
             break; // 下 (Down)
 
