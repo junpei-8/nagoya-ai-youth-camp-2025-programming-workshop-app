@@ -108,19 +108,28 @@ function generateCellTypeSection() {
  * @returns {string}
  */
 function generateMapLayoutSection(mapConfig) {
+    // ロボットが認識できないセルをマスク
+    const maskedLayout = mapConfig.layout.map((row) =>
+        row.map((cellAlias) => {
+            const cellType = mapConfig.cell[cellAlias]?.type;
+            return cellType === 'trap' || cellType === 'end' ? '?' : cellAlias;
+        })
+    );
+
     return (
         `## この固有マップのレイアウトの説明\n` +
         `このマップのレイアウトは、Y座標、X座標の順で以下の通りです。\n` +
         `\`\`\`\n` +
-        `${mapConfig.layout
-            .map((row, i) => `Y=${i}（${i + 1}行目）: [${row.join(',')}]`)
+        `${maskedLayout
+            .map((row, i) => `Y=${i}(${i + 1}行目): [${row.join(',')}]`)
             .join('\n')}\n` +
         `\`\`\`\n` +
         '\n' +
         `### 座標の読み方\n` +
         `- 左上が原点(0,0)\n` +
         `- 横方向（右へ）がX座標の増加\n` +
-        `- 縦方向（下へ）がY座標の増加\n`
+        `- 縦方向（下へ）がY座標の増加\n` +
+        `- ? はあなたが認識できないセルを表す\n`
     );
 }
 
@@ -131,15 +140,18 @@ function generateMapLayoutSection(mapConfig) {
  * @returns {string}
  */
 function generateMapSymbolSection(mapConfig) {
-    let section = `\n` + `## この固有マップの記号とタイプ定義\n`;
+    let section = `## この固有マップの記号とタイプ定義\n`;
     for (const [char, config] of Object.entries(mapConfig.cell)) {
         if (!config || !config.type) continue;
-
         const overview = `- マップ記号「${char}」はタイプ「${config.type}」に対応します。`;
+        const visibility =
+            config.type === 'trap' || config.type === 'end'
+                ? '（あなたはこのセルの位置を認識できません）'
+                : '（認識可能）';
         const description = config.description
             ? ` (説明: ${config.description})`
             : '';
-        section += `${overview}${description}\n`;
+        section += `${overview}${visibility}${description}\n`;
     }
     return section;
 }
@@ -151,7 +163,7 @@ function generateMapSymbolSection(mapConfig) {
  */
 function generateUserRoleSection() {
     return (
-        `\n## ユーザーの役割の理解\n` +
+        `## ユーザーの役割の理解\n` +
         `重要：ユーザーはマップ全体（トラップやゴールの位置を含む）を見ることができます。\n` +
         `ユーザーの指示は、あなたには見えない危険を回避し、ゴールへ導くための信頼できるガイドです。\n` +
         `指示が一見遠回りに見えても、それはトラップを避けるためかもしれません。\n` +
@@ -179,7 +191,7 @@ function generateVisibleObjectsSection(mapConfig) {
 
     if (visibleObjects.length > 0) {
         return (
-            `\n## 認識可能なオブジェクトの位置\n` +
+            `## 認識可能なオブジェクトの位置\n` +
             `あなたが認識できるオブジェクトは以下の位置にあります：\n` +
             `${visibleObjects.join(', ')}\n` +
             `これらを目印として、ユーザーの指示を解釈してください。\n`
@@ -196,7 +208,7 @@ function generateVisibleObjectsSection(mapConfig) {
  */
 function generateLimitedInformationSection() {
     return (
-        `\n## 限定的な情報での指示解釈\n` +
+        `## 限定的な情報での指示解釈\n` +
         `あなたが認識できる情報（オブジェクトの位置など）を手がかりに指示を解釈してください：\n` +
         `- 「下のオブジェクトまで」→ 現在位置から下方向にある、認識可能な最も近いオブジェクトを特定\n` +
         `- 「右に1マス」→ その位置から正確に1マス右へ\n` +
@@ -244,8 +256,8 @@ function generateStepByStepSection() {
         '\n' +
         `### 例\n` +
         `指示「1. 下に4マス 2. 右に1マス 3. 下に1マス 4. 右に4マス」の場合：\n` +
-        `正しい出力: \`${movementKey.DOWN}${movementKey.DOWN}${movementKey.DOWN}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.RIGHT}${movementKey.RIGHT}${movementKey.RIGHT}\`\n` +
-        `間違った出力: \`${movementKey.DOWN}${movementKey.DOWN}${movementKey.DOWN}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.RIGHT}${movementKey.RIGHT}${movementKey.RIGHT}\` （余計な下移動を追加）\n`
+        `- 正しい出力: \`${movementKey.DOWN}${movementKey.DOWN}${movementKey.DOWN}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.RIGHT}${movementKey.RIGHT}${movementKey.RIGHT}\`\n` +
+        `- 間違った出力: \`${movementKey.DOWN}${movementKey.DOWN}${movementKey.DOWN}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.RIGHT}${movementKey.RIGHT}${movementKey.RIGHT}\` （余計な下移動を追加）\n`
     );
 }
 

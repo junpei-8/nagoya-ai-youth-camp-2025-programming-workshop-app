@@ -1,3 +1,6 @@
+// game-renderer モジュールをインポート
+import * as GameRenderer from './game-renderer.js';
+
 // ###########
 // ## 型定義 ##
 // ###########
@@ -69,8 +72,9 @@ function updateCameraSettings({ camera, mapDisplayWidth, mapDisplayHeight }) {
     const mapMaxSize = Math.max(mapDisplayWidth, mapDisplayHeight);
 
     // FOVを計算して盤面がcanvas内に確実に収まるようにする
-    const cameraDistance = mapMaxSize * 2.2;
-    const topMargin = 2.5;
+    // カメラ距離を増やしてより広い範囲を表示
+    const cameraDistance = mapMaxSize * 2.5; // 2.2 から 2.5 に変更
+    const topMargin = 3.0; // 2.5 から 3.0 に増やして余白を確保
     const halfMapSizeWithMargin = mapMaxSize / 2 + topMargin;
     const fov =
         2 * Math.atan(halfMapSizeWithMargin / cameraDistance) * (180 / Math.PI);
@@ -113,6 +117,9 @@ function renderMap({ threeJS, element, mapConfig }) {
      * }}
      */
     const position = {};
+
+    // 宝箱を保存するための変数
+    let goalChest = null;
 
     // スタート位置とエンド位置を検索
     for (let j = 0; j < layout.length; j++) {
@@ -197,39 +204,95 @@ function renderMap({ threeJS, element, mapConfig }) {
         for (let i = 0; i < mapDisplayWidth; i++) {
             const cellAlias = layout[j][i];
             const cellDef = mapConfig.cell[cellAlias];
-            // タイルを平面ジオメトリで作成（盤面の上に配置）
-            const geometry = new threeJS.PlaneGeometry(0.98, 0.98);
-            let colorValue = 0xcccccc; // 未定義タイル用のデフォルト色
 
             // セル定義がない場合はスキップ
             if (!cellDef) {
                 continue;
             }
 
-            // セルの色を設定
-            if (cellDef.color) {
-                const parsedColor = parseInt(
-                    cellDef.color.replace('#', ''),
-                    16
-                );
-                colorValue = isNaN(parsedColor) ? colorValue : parsedColor;
+            // セルタイプに応じて適切なレンダリング関数を呼び出す
+            let element = null;
+
+            switch (cellDef.type) {
+                case 'object':
+                    element = GameRenderer.renderObstacle({
+                        threeJS,
+                        x: i,
+                        z: j,
+                    });
+                    break;
+                case 'trap':
+                    element = GameRenderer.renderTrap({ threeJS, x: i, z: j });
+                    break;
+                case 'end':
+                    // ゴールは宝箱で表示するが、タイルの色も表示
+                    let endColorValue = 0xcccccc;
+                    if (cellDef.color) {
+                        const parsedColor = parseInt(
+                            cellDef.color.replace('#', ''),
+                            16
+                        );
+                        endColorValue = isNaN(parsedColor)
+                            ? endColorValue
+                            : parsedColor;
+                    }
+                    // タイルを描画
+                    const endTile = GameRenderer.renderTile({
+                        threeJS,
+                        x: i,
+                        z: j,
+                        color: endColorValue,
+                    });
+                    scene.add(endTile);
+                    // 宝箱を追加
+                    element = GameRenderer.renderGoal({ threeJS, x: i, z: j });
+                    goalChest = element; // 宝箱を保存
+                    break;
+                case 'start':
+                    // スタートタイルは通常のタイルとして描画
+                    let startColorValue = 0xcccccc;
+                    if (cellDef.color) {
+                        const parsedColor = parseInt(
+                            cellDef.color.replace('#', ''),
+                            16
+                        );
+                        startColorValue = isNaN(parsedColor)
+                            ? startColorValue
+                            : parsedColor;
+                    }
+                    element = GameRenderer.renderTile({
+                        threeJS,
+                        x: i,
+                        z: j,
+                        color: startColorValue,
+                    });
+                    break;
+                case 'normal':
+                default:
+                    // 通常のタイルを描画
+                    let colorValue = 0xcccccc; // デフォルト色
+                    if (cellDef.color) {
+                        const parsedColor = parseInt(
+                            cellDef.color.replace('#', ''),
+                            16
+                        );
+                        colorValue = isNaN(parsedColor)
+                            ? colorValue
+                            : parsedColor;
+                    }
+                    element = GameRenderer.renderTile({
+                        threeJS,
+                        x: i,
+                        z: j,
+                        color: colorValue,
+                    });
+                    break;
             }
 
-            // セルのマテリアルを作成
-            const tile = new threeJS.Mesh(
-                geometry,
-                new threeJS.MeshStandardMaterial({
-                    color: colorValue,
-                    side: threeJS.DoubleSide,
-                })
-            );
-
-            // セルの位置を設定
-            tile.rotation.x = -Math.PI / 2; // X軸を中心に-90度回転して水平に
-            tile.position.set(i, 0.01, j); // 盤面の上に少し浮かせて配置
-
-            // セルをシーンに追加
-            scene.add(tile);
+            // 要素をシーンに追加
+            if (element) {
+                scene.add(element);
+            }
         }
     }
 
@@ -244,6 +307,7 @@ function renderMap({ threeJS, element, mapConfig }) {
         position,
         mapDisplayWidth,
         mapDisplayHeight,
+        goalChest, // 宝箱を返す
     };
 }
 
@@ -256,22 +320,13 @@ function renderMap({ threeJS, element, mapConfig }) {
  * @returns                                     プレイヤー
  */
 function createPlayer({ threeJS, mapContext }) {
-    // プレイヤーを作成
-    const player = new threeJS.Mesh(
-        // プレイヤーの形状
-        new threeJS.BoxGeometry(0.8, 0.8, 0.8),
-        // プレイヤーの色
-        new threeJS.MeshStandardMaterial({
-            color: 0x4444ff,
-        })
-    );
-
-    // プレイヤーの位置を設定（盤面の上に配置、整数座標に丸める）
-    player.position.set(
-        Math.round(mapContext.position.start.x),
-        0.4, // 盤面の上面(Y=0)からプレイヤーの半分の高さ(0.4)分上に配置
-        Math.round(mapContext.position.start.y)
-    );
+    // ロボット（プレイヤー）を作成
+    const player = GameRenderer.renderRobot({
+        threeJS,
+        x: Math.round(mapContext.position.start.x),
+        y: 0, // Y座標は renderRobot 内で調整される
+        z: Math.round(mapContext.position.start.y),
+    });
 
     // プレイヤーをシーンに追加
     mapContext.scene.add(player);
@@ -347,6 +402,48 @@ export async function setupGame({ element, mapConfig }) {
 // #####################
 
 /**
+ * 宝箱が回転しながら上昇するアニメーション
+ * @param {GameContext} context ゲームコンテキスト
+ */
+function animateGoalChest(context) {
+    const { renderer, scene, camera, goalChest } = context;
+
+    if (!goalChest) return;
+
+    const duration = 2000; // 2秒間のアニメーション
+    let startTime = null;
+    const startY = goalChest.position.y;
+    const targetY = startY + 3; // 3ユニット上昇
+    const totalRotations = 5; // 5回転
+
+    function animate(currentTime) {
+        if (startTime === null) startTime = currentTime;
+        const elapsedTime = currentTime - startTime;
+        const t = Math.min(elapsedTime / duration, 1);
+
+        // 上昇
+        goalChest.position.y = startY + (targetY - startY) * t;
+
+        // 回転（最後に正面を向く）
+        if (t < 1) {
+            // アニメーション中は回転
+            goalChest.rotation.y = t * Math.PI * 2 * totalRotations;
+        } else {
+            // アニメーション終了時は正面を向く
+            goalChest.rotation.y = 0;
+        }
+
+        renderer.render(scene, camera);
+
+        if (t < 1) {
+            requestAnimationFrame(animate);
+        }
+    }
+
+    requestAnimationFrame(animate);
+}
+
+/**
  * 移動コマンド文字の定義。
  */
 export const movementKey = {
@@ -375,21 +472,27 @@ export function movePlayer({ context, direction }) {
     } = context;
 
     const stepVec = { x: 0, z: 0 }; // 移動ベクトル
+    let targetRotationY = player.rotation.y; // 目標回転角度
+
     switch (direction) {
         case movementKey.RIGHT:
             stepVec.x = 1;
+            targetRotationY = Math.PI / 2; // 90度（右向き）
             break; // 右 (Right)
 
         case movementKey.LEFT:
             stepVec.x = -1;
+            targetRotationY = -Math.PI / 2; // -90度（左向き）
             break; // 左 (Left)
 
         case movementKey.UP:
             stepVec.z = -1;
+            targetRotationY = Math.PI; // 180度（上向き = 奥向き）
             break; // 上 (Up)
 
         case movementKey.DOWN:
             stepVec.z = 1;
+            targetRotationY = 0; // 0度（下向き = 手前向き）
             break; // 下 (Down)
 
         default:
@@ -432,16 +535,44 @@ export function movePlayer({ context, direction }) {
 
     // アニメーションの設定
     const duration = 240;
+    const rotationDuration = 100; // 回転用の短い持続時間
     let startTime = null;
+    const startRotationY = player.rotation.y;
+
+    // 回転角度の差を最短経路に調整
+    let rotationDiff = targetRotationY - startRotationY;
+    if (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
+    if (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
 
     // アニメーションループ
     function animate(currentTime) {
         if (startTime === null) startTime = currentTime;
         const elapsedTime = currentTime - startTime;
         const t = Math.min(elapsedTime / duration, 1); // 進行度 (0から1)
-        player.position.lerpVectors(startPos, endPos, t); // 線形補間で中間位置を計算
+        const rotationT = Math.min(elapsedTime / rotationDuration, 1); // 回転用の進行度
+
+        // 位置の補間
+        player.position.lerpVectors(startPos, endPos, t);
+
+        // 回転の補間（より早く完了）
+        player.rotation.y = startRotationY + rotationDiff * rotationT;
+
         renderer.render(scene, camera); // シーンをレンダリング
-        if (t < 1) requestAnimationFrame(animate);
+
+        // 移動完了時にゴールチェック
+        if (t >= 1) {
+            // ゴールに到達したかチェック
+            if (
+                targetX === context.position.end.x &&
+                targetZ === context.position.end.y
+            ) {
+                console.log('ゴールに到達しました！');
+                // 宝箱アニメーションを開始
+                animateGoalChest(context);
+            }
+        } else {
+            requestAnimationFrame(animate);
+        }
     }
 
     // アニメーション開始
@@ -501,7 +632,9 @@ export function setupPlayerMoverButton({
         }
 
         // プレイヤーをスタート地点に移動（整数座標に丸める）
-        player.position.set(Math.round(startX), 0.4, Math.round(startY));
+        player.position.set(Math.round(startX), 0, Math.round(startY));
+        // プレイヤーの向きを初期化（下向き = 手前向き）
+        player.rotation.y = 0;
         renderer.render(scene, camera);
 
         try {
