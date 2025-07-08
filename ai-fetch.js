@@ -1,4 +1,4 @@
-import { movementKey } from './game.js'; // game.js から movementKey をインポート
+import { movementKey } from './game.js';
 
 // movementKey を使用して正規表現を動的に生成
 const allowedCharsList = Object.values(movementKey);

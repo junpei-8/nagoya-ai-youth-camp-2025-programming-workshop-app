@@ -8,16 +8,15 @@ import { movementKey } from './game.js';
  * @returns {string}                               システムプロンプト文字列
  */
 export function generateSystemPrompt(mapConfig) {
-    return [
+    const result = [
         '# システムプロンプト\n',
         generateRoleSection(),
         generateCoordinateSection(),
         generateMovementInstructionSection(),
         generateCellTypeSection(),
-        generateMapLayoutSection(mapConfig),
         generateMapSymbolSection(mapConfig),
+        generateMapLayoutSection(mapConfig),
         generateUserRoleSection(),
-        generateVisibleObjectsSection(mapConfig),
         generateLimitedInformationSection(),
         generateNumericalUnderstandingSection(),
         generateStepByStepSection(),
@@ -28,6 +27,8 @@ export function generateSystemPrompt(mapConfig) {
     ]
         .filter(Boolean)
         .join('\n\n');
+
+    return result;
 }
 
 /**
@@ -108,13 +109,26 @@ function generateCellTypeSection() {
  * @returns {string}
  */
 function generateMapLayoutSection(mapConfig) {
+    // マップより normal タイプのセルを探す
+    const normalCell = Object.entries(mapConfig.cell).find(
+        ([_, cell]) => cell.type === 'normal'
+    );
+
+    // マップより normal タイプのセル
+    const normalCellKey = normalCell?.[0] || '?';
+
     // ロボットが認識できないセルをマスク
     const maskedLayout = mapConfig.layout.map((row) =>
         row.map((cellAlias) => {
             const cellType = mapConfig.cell[cellAlias]?.type;
-            return cellType === 'trap' || cellType === 'end' ? '?' : cellAlias;
+            return cellType === 'trap' || cellType === 'end'
+                ? normalCellKey
+                : cellAlias;
         })
     );
+
+    console.log('maskedLayout');
+    console.log(maskedLayout);
 
     return (
         `## この固有マップのレイアウトの説明\n` +
@@ -128,8 +142,7 @@ function generateMapLayoutSection(mapConfig) {
         `### 座標の読み方\n` +
         `- 左上が原点(0,0)\n` +
         `- 横方向（右へ）がX座標の増加\n` +
-        `- 縦方向（下へ）がY座標の増加\n` +
-        `- ? はあなたが認識できないセルを表す\n`
+        `- 縦方向（下へ）がY座標の増加\n`
     );
 }
 
@@ -170,35 +183,6 @@ function generateUserRoleSection() {
         `ユーザーの指示に忠実に従ってください。\n` +
         `指示された移動以外の追加の移動は行わないでください。\n`
     );
-}
-
-/**
- * 認識可能なオブジェクトセクションを生成。
- *
- * @param   {import("./game").MapConfig} mapConfig
- * @returns {string}
- */
-function generateVisibleObjectsSection(mapConfig) {
-    const visibleObjects = [];
-    for (let j = 0; j < mapConfig.layout.length; j++) {
-        for (let i = 0; i < mapConfig.layout[j].length; i++) {
-            const cellType = mapConfig.cell[mapConfig.layout[j][i]]?.type;
-            if (cellType === 'object') {
-                visibleObjects.push(`(${i}, ${j})`);
-            }
-        }
-    }
-
-    if (visibleObjects.length > 0) {
-        return (
-            `## 認識可能なオブジェクトの位置\n` +
-            `あなたが認識できるオブジェクトは以下の位置にあります：\n` +
-            `${visibleObjects.join(', ')}\n` +
-            `これらを目印として、ユーザーの指示を解釈してください。\n`
-        );
-    }
-
-    return '';
 }
 
 /**

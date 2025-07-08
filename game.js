@@ -1,5 +1,10 @@
-// game-renderer モジュールをインポート
-import * as GameRenderer from './game-renderer.js';
+import {
+    renderRobotModel,
+    renderObstacleModel,
+    renderTrapModel,
+    renderGoalModel,
+    renderTileModel,
+} from './game-model.js';
 
 // ###########
 // ## 型定義 ##
@@ -50,6 +55,17 @@ async function loadThreeJS() {
         alert('Three.js の読み込みに失敗しました。ゲームを開始できません。');
         throw error;
     }
+}
+
+/**
+ * requestAnimationFrameをPromiseでラップする関数。
+ *
+ * @returns {Promise<number>} タイムスタンプ
+ */
+function animateFrame() {
+    return new Promise((resolve) => {
+        requestAnimationFrame((timestamp) => resolve(timestamp));
+    });
 }
 
 // ######################
@@ -199,6 +215,10 @@ function renderMap({ threeJS, element, mapConfig }) {
     );
     scene.add(board);
 
+    // オブジェクトとトラップの位置を記録
+    const objectPositions = [];
+    const trapPositions = [];
+
     // マップタイルを作成
     for (let j = 0; j < mapDisplayHeight; j++) {
         for (let i = 0; i < mapDisplayWidth; i++) {
@@ -215,14 +235,18 @@ function renderMap({ threeJS, element, mapConfig }) {
 
             switch (cellDef.type) {
                 case 'object':
-                    element = GameRenderer.renderObstacle({
+                    element = renderObstacleModel({
                         threeJS,
                         x: i,
                         z: j,
                     });
+                    // オブジェクトの位置を記録
+                    objectPositions.push({ x: i, y: j });
                     break;
                 case 'trap':
-                    element = GameRenderer.renderTrap({ threeJS, x: i, z: j });
+                    element = renderTrapModel({ threeJS, x: i, z: j });
+                    // トラップの位置を記録
+                    trapPositions.push({ x: i, y: j });
                     break;
                 case 'end':
                     // ゴールは宝箱で表示するが、タイルの色も表示
@@ -237,7 +261,7 @@ function renderMap({ threeJS, element, mapConfig }) {
                             : parsedColor;
                     }
                     // タイルを描画
-                    const endTile = GameRenderer.renderTile({
+                    const endTile = renderTileModel({
                         threeJS,
                         x: i,
                         z: j,
@@ -245,7 +269,7 @@ function renderMap({ threeJS, element, mapConfig }) {
                     });
                     scene.add(endTile);
                     // 宝箱を追加
-                    element = GameRenderer.renderGoal({ threeJS, x: i, z: j });
+                    element = renderGoalModel({ threeJS, x: i, z: j });
                     goalChest = element; // 宝箱を保存
                     break;
                 case 'start':
@@ -260,7 +284,7 @@ function renderMap({ threeJS, element, mapConfig }) {
                             ? startColorValue
                             : parsedColor;
                     }
-                    element = GameRenderer.renderTile({
+                    element = renderTileModel({
                         threeJS,
                         x: i,
                         z: j,
@@ -280,7 +304,7 @@ function renderMap({ threeJS, element, mapConfig }) {
                             ? colorValue
                             : parsedColor;
                     }
-                    element = GameRenderer.renderTile({
+                    element = renderTileModel({
                         threeJS,
                         x: i,
                         z: j,
@@ -308,20 +332,22 @@ function renderMap({ threeJS, element, mapConfig }) {
         mapDisplayWidth,
         mapDisplayHeight,
         goalChest, // 宝箱を返す
+        objectPositions, // オブジェクトの位置を返す
+        trapPositions, // トラップの位置を返す
     };
 }
 
 /**
  * プレイヤーキャラクターを作成し、シーンに追加する。
  *
- * @param   {object}          params            プレイヤー作成パラメータ
- * @param   {ThreeJS}         params.threeJS    Three.js インスタンス
- * @param   {MapContext}      params.mapContext マップコンテキスト
+ * @param   {object}     params            プレイヤー作成パラメータ
+ * @param   {ThreeJS}    params.threeJS    Three.js インスタンス
+ * @param   {MapContext} params.mapContext マップコンテキスト
  * @returns                                     プレイヤー
  */
 function createPlayer({ threeJS, mapContext }) {
     // ロボット（プレイヤー）を作成
-    const player = GameRenderer.renderRobot({
+    const player = renderRobotModel({
         threeJS,
         x: Math.round(mapContext.position.start.x),
         y: 0, // Y座標は renderRobot 内で調整される
@@ -342,16 +368,16 @@ function createPlayer({ threeJS, mapContext }) {
  */
 
 /**
- * ゲームの主要なセットアップ処理を行う。\
+ * ゲームのレンダリング処理を行う。\
  * Three.js のロード、マップレンダリング、プレイヤー作成を順番に実行する。
  *
- * @param   {object}               params           セットアップパラメータ
- * @param   {HTMLElement}          params.element   レンダリング対象の要素
- * @param   {object}               params.mapConfig マップ設定オブジェクト
- * @returns                                         コンテキストオブジェクト
- * @throws  {Error}                                 Three.js のロードまたはゲームの初期化に失敗した場合エラーをスロー
+ * @param   {object}      params           セットアップパラメータ
+ * @param   {HTMLElement} params.element   レンダリング対象の要素
+ * @param   {object}      params.mapConfig マップ設定オブジェクト
+ * @returns                                コンテキストオブジェクト
+ * @throws  {Error}                        Three.js のロードまたはゲームの初期化に失敗した場合エラーをスロー
  */
-export async function setupGame({ element, mapConfig }) {
+export async function renderGame({ element, mapConfig }) {
     const threeJS = await loadThreeJS();
 
     // マップをレンダリングし、シーン、カメラ、レンダラーを取得
@@ -402,7 +428,8 @@ export async function setupGame({ element, mapConfig }) {
 // #####################
 
 /**
- * 宝箱が回転しながら上昇するアニメーション
+ * 宝箱が回転しながら上昇するアニメーション。
+ *
  * @param {GameContext} context ゲームコンテキスト
  */
 function animateGoalChest(context) {
@@ -413,7 +440,7 @@ function animateGoalChest(context) {
     const duration = 2000; // 2秒間のアニメーション
     let startTime = null;
     const startY = goalChest.position.y;
-    const targetY = startY + 3; // 3ユニット上昇
+    const targetY = startY + 1.5; // 1.5ユニット上昇（以前の3から減らした）
     const totalRotations = 5; // 5回転
 
     function animate(currentTime) {
@@ -431,6 +458,10 @@ function animateGoalChest(context) {
         } else {
             // アニメーション終了時は正面を向く
             goalChest.rotation.y = 0;
+            // アニメーション完了後に成功アラートを表示
+            setTimeout(() => {
+                alert('ゴールに到達しました！ おめでとうございます！');
+            }, 100);
         }
 
         renderer.render(scene, camera);
@@ -456,11 +487,12 @@ export const movementKey = {
 /**
  * プレイヤーを指定された方向に1ステップ移動させ、アニメーション表示する。
  *
- * @param {object}      params           移動パラメータ
- * @param {GameContext} params.context   ゲームコンテキストオブジェクト
- * @param {string}      params.direction 移動方向
+ * @param   {object}        params           移動パラメータ
+ * @param   {GameContext}   params.context   ゲームコンテキストオブジェクト
+ * @param   {string}        params.direction 移動方向
+ * @returns {Promise<void>}              アニメーション完了時に解決されるPromise
  */
-export function movePlayer({ context, direction }) {
+export async function movePlayer({ context, direction }) {
     const {
         threeJS,
         scene,
@@ -471,33 +503,22 @@ export function movePlayer({ context, direction }) {
         mapDisplayHeight,
     } = context;
 
-    const stepVec = { x: 0, z: 0 }; // 移動ベクトル
-    let targetRotationY = player.rotation.y; // 目標回転角度
+    // 方向の設定と早期リターン
+    const directionConfig = {
+        [movementKey.RIGHT]: { x: 1, z: 0, rotation: Math.PI / 2 },
+        [movementKey.LEFT]: { x: -1, z: 0, rotation: -Math.PI / 2 },
+        [movementKey.UP]: { x: 0, z: -1, rotation: Math.PI },
+        [movementKey.DOWN]: { x: 0, z: 1, rotation: 0 },
+    };
 
-    switch (direction) {
-        case movementKey.RIGHT:
-            stepVec.x = 1;
-            targetRotationY = Math.PI / 2; // 90度（右向き）
-            break; // 右 (Right)
-
-        case movementKey.LEFT:
-            stepVec.x = -1;
-            targetRotationY = -Math.PI / 2; // -90度（左向き）
-            break; // 左 (Left)
-
-        case movementKey.UP:
-            stepVec.z = -1;
-            targetRotationY = Math.PI; // 180度（上向き = 奥向き）
-            break; // 上 (Up)
-
-        case movementKey.DOWN:
-            stepVec.z = 1;
-            targetRotationY = 0; // 0度（下向き = 手前向き）
-            break; // 下 (Down)
-
-        default:
-            return; // 未知の方向の場合は何もしない
+    const config = directionConfig[direction];
+    if (!config) {
+        console.log('未知の方向:', direction);
+        return; // 未知の方向の場合は早期リターン
     }
+
+    const stepVec = { x: config.x, z: config.z };
+    const targetRotationY = config.rotation;
 
     // 現在位置を整数に丸めてから計算（浮動小数点誤差を防ぐ）
     const currentX = Math.round(player.position.x);
@@ -507,28 +528,32 @@ export function movePlayer({ context, direction }) {
     const targetX = currentX + stepVec.x;
     const targetZ = currentZ + stepVec.z;
 
-    // 盤外への移動を防ぐ（デバッグ情報付き）
-    console.log(
-        'Current:',
-        currentX,
-        currentZ,
-        'Target:',
-        targetX,
-        targetZ,
-        'Map size:',
-        mapDisplayWidth,
-        'x',
-        mapDisplayHeight
-    );
-    if (
+    // 盤外への移動を防ぐ（早期リターン）
+    const isOutOfBounds =
         targetX < 0 ||
         targetX >= mapDisplayWidth ||
         targetZ < 0 ||
-        targetZ >= mapDisplayHeight
-    ) {
-        console.log('盤外への移動をブロックしました');
-        return; // 盤外への移動はキャンセル
+        targetZ >= mapDisplayHeight;
+    if (isOutOfBounds) {
+        console.log(
+            `盤外への移動をブロック: (${currentX},${currentZ}) -> (${targetX},${targetZ})`
+        );
+        return;
     }
+
+    // オブジェクトとの衝突判定（早期リターン）
+    const isObjectCollision = context.objectPositions.some(
+        (pos) => pos.x === targetX && pos.y === targetZ
+    );
+    if (isObjectCollision) {
+        console.log('オブジェクトとの衝突を検出しました');
+        return;
+    }
+
+    // トラップとの衝突判定（移動を許可し、移動後にチェック）
+    const isTrapCollision = context.trapPositions.some(
+        (pos) => pos.x === targetX && pos.y === targetZ
+    );
 
     // 最終位置も整数座標にする
     const endPos = new threeJS.Vector3(targetX, player.position.y, targetZ);
@@ -536,7 +561,6 @@ export function movePlayer({ context, direction }) {
     // アニメーションの設定
     const duration = 240;
     const rotationDuration = 100; // 回転用の短い持続時間
-    let startTime = null;
     const startRotationY = player.rotation.y;
 
     // 回転角度の差を最短経路に調整
@@ -544,9 +568,12 @@ export function movePlayer({ context, direction }) {
     if (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
     if (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
 
+    // アニメーション開始
+    const startTime = await animateFrame();
+    let currentTime = startTime;
+
     // アニメーションループ
-    function animate(currentTime) {
-        if (startTime === null) startTime = currentTime;
+    while (true) {
         const elapsedTime = currentTime - startTime;
         const t = Math.min(elapsedTime / duration, 1); // 進行度 (0から1)
         const rotationT = Math.min(elapsedTime / rotationDuration, 1); // 回転用の進行度
@@ -559,24 +586,78 @@ export function movePlayer({ context, direction }) {
 
         renderer.render(scene, camera); // シーンをレンダリング
 
-        // 移動完了時にゴールチェック
+        // アニメーション完了判定
         if (t >= 1) {
-            // ゴールに到達したかチェック
-            if (
-                targetX === context.position.end.x &&
-                targetZ === context.position.end.y
-            ) {
-                console.log('ゴールに到達しました！');
-                // 宝箱アニメーションを開始
-                animateGoalChest(context);
-            }
-        } else {
-            requestAnimationFrame(animate);
+            break;
         }
+
+        // 次のフレームを待つ
+        currentTime = await animateFrame();
     }
 
-    // アニメーション開始
-    requestAnimationFrame(animate);
+    // 移動完了時の処理
+    // トラップに到達したかチェック
+    if (isTrapCollision) {
+        console.log('トラップに接触しました！');
+        context.gameOver = true;
+        requestAnimationFrame(() =>
+            alert('トラップに接触しました！ ゲームオーバーです。')
+        );
+        return; // 早期リターン
+    }
+
+    // ゴールに到達したかチェック
+    const isGoal =
+        targetX === context.position.end.x &&
+        targetZ === context.position.end.y;
+    if (isGoal) {
+        console.log('ゴールに到達しました！');
+        animateGoalChest(context);
+    }
+}
+
+/**
+ * 宝箱を初期状態にリセットする関数。
+ *
+ * @param {GameContext} gameContext ゲームコンテキスト
+ */
+function resetGoalChest(gameContext) {
+    const { goalChest } = gameContext;
+    if (goalChest) {
+        // 宝箱の回転と位置を初期化
+        goalChest.rotation.y = 0;
+        goalChest.position.y = 0;
+        console.log('宝箱を初期状態にリセットしました');
+    }
+}
+
+/**
+ * AIレスポンス表示エリアをレンダリングする。
+ *
+ * @param {HTMLElement} element レンダリング対象の要素
+ */
+function renderGameAIResponseViewer(element) {
+    // ラベルを作成
+    const label = document.createElement('div');
+    label.id = 'ai-response-label';
+    label.textContent = 'AIからの指示';
+
+    // レスポンス表示エリアを作成
+    const response = document.createElement('div');
+    response.id = 'ai-response';
+
+    // 要素を追加
+    element.appendChild(label);
+    element.appendChild(response);
+}
+
+/**
+ * ゲームトリガーボタンをレンダリングする。
+ *
+ * @param {HTMLElement} element レンダリング対象の要素
+ */
+function renderGameTrigger(element) {
+    element.textContent = 'スタート';
 }
 
 /**
@@ -588,13 +669,18 @@ export function movePlayer({ context, direction }) {
  * @param {GameContext}       params.gameContext ゲームコンテキストオブジェクト
  * @param {function}          params.pathFetcher AIから経路を取得する関数
  */
-export function setupPlayerMoverButton({
+function setupPlayerMoverButton({
     element,
     mapConfig,
     gameContext,
     pathFetcher,
 }) {
     const { scene, camera, renderer, player } = gameContext;
+
+    // 初回実行フラグ
+    let hasRunOnce = false;
+
+    // ボタンの初期化はrenderGameTriggerで実行済み
 
     // GameContextにmapDisplayWidthとmapDisplayHeightが含まれているか確認
     console.log(
@@ -607,6 +693,21 @@ export function setupPlayerMoverButton({
     element.addEventListener('click', async () => {
         console.log('AIによる経路指示に基づくプレイヤー移動を開始します...');
         element.disabled = true; // 処理中にボタンを無効化
+
+        // 再実行時に宝箱をリセット
+        if (hasRunOnce) {
+            resetGoalChest(gameContext);
+
+            // ゲームオーバーフラグをリセット
+            gameContext.gameOver = false;
+
+            // レスポンス表示をクリア
+            const responseEl = document.getElementById('ai-response');
+            if (responseEl) {
+                responseEl.innerHTML = '';
+                responseEl.classList.remove('visible');
+            }
+        }
 
         // スタート位置にプレイヤーをリセット (オプション)
         let startX, startY;
@@ -637,12 +738,51 @@ export function setupPlayerMoverButton({
         player.rotation.y = 0;
         renderer.render(scene, camera);
 
+        // ローディング表示
+        const originalText = element.textContent;
+        const originalHTML = element.innerHTML;
+
+        // スピナーを追加
+        element.innerHTML = '<span class="spinner"></span>回答待ち';
+
         try {
             // 経路を取得
             const moves = await pathFetcher();
 
+            // ChatGPTからのレスポンスが完了したら「実行中...」に変更
+            element.innerHTML = '実行中...';
+
             // 経路をコンソールに出力
             console.log('AIからの経路:', moves);
+
+            // レスポンス表示領域の更新
+            const responseEl = document.getElementById('ai-response');
+
+            if (responseEl) {
+                responseEl.innerHTML = '';
+                responseEl.classList.remove('visible');
+
+                // 矢印を一つずつ表示
+                const arrows = moves[0].split('');
+                const directionMap = {
+                    u: '↑',
+                    d: '↓',
+                    l: '←',
+                    r: '→',
+                };
+
+                arrows.forEach((arrow, index) => {
+                    const span = document.createElement('span');
+                    span.textContent = directionMap[arrow] || arrow;
+                    span.style.animationDelay = `${index * 100}ms`;
+                    responseEl.appendChild(span);
+                });
+
+                // 少し遅れて全体を表示
+                setTimeout(() => {
+                    responseEl.classList.add('visible');
+                }, 50);
+            }
 
             // 経路がない場合はエラーを表示して終了
             if (!moves || moves.length === 0) {
@@ -650,18 +790,67 @@ export function setupPlayerMoverButton({
                 return;
             }
 
-            const movingDelay = 240;
+            const movingDelay = 80; // 移動間の遅延を短縮
             const moveSequence = moves[0]; // "lru" のような文字列
+
+            // 移動をキャンセル可能にするためのフラグ
+            let shouldContinue = true;
+            const movePromises = [];
+
+            // ゲームオーバー監視用のインターバル
+            const gameOverCheckInterval = setInterval(() => {
+                if (gameContext.gameOver) {
+                    shouldContinue = false;
+                    clearInterval(gameOverCheckInterval);
+                }
+            }, 40);
+
+            // 全ての移動を並列に開始しますが、前の移動の完了を待機
+            let previousMovePromise = Promise.resolve();
+
             for (let i = 0; i < moveSequence.length; i++) {
+                // 移動を中断すべきかチェック
+                if (!shouldContinue || gameContext.gameOver) {
+                    console.log('ゲームオーバーのため移動を中断します');
+                    break;
+                }
+
                 const moveChar = moveSequence[i];
-                await new Promise((resolve) =>
-                    setTimeout(resolve, i === 0 ? 0 : movingDelay)
-                );
-                movePlayer({
-                    context: gameContext,
-                    direction: moveChar,
+                const currentIndex = i;
+
+                // 前の移動完了と遅延を待ってから次の移動を開始
+                previousMovePromise = previousMovePromise.then(async () => {
+                    // ゲームオーバーチェック
+                    if (gameContext.gameOver) {
+                        shouldContinue = false;
+                        return;
+                    }
+
+                    // 初回以外は遅延を入れる
+                    if (currentIndex > 0) {
+                        await new Promise((resolve) =>
+                            setTimeout(resolve, movingDelay)
+                        );
+                    }
+
+                    // 再度ゲームオーバーチェック
+                    if (gameContext.gameOver) {
+                        shouldContinue = false;
+                        return;
+                    }
+
+                    // 移動を実行
+                    return movePlayer({
+                        context: gameContext,
+                        direction: moveChar,
+                    });
                 });
             }
+
+            // 最後の移動の完了を待つ
+            await previousMovePromise;
+
+            clearInterval(gameOverCheckInterval);
 
             // ↓ エラーが発生した場合の処理
         } catch (error) {
@@ -669,10 +858,62 @@ export function setupPlayerMoverButton({
                 'AI経路取得またはプレイヤー移動の実行中にエラーが発生しました:',
                 error
             );
+            // エラー時もHTMLを復元
+            element.innerHTML = originalHTML;
 
             // ↓ 処理が全て完了した時の処理
         } finally {
             element.disabled = false; // 処理完了後またはエラー時にボタンを再度有効化
+
+            // 初回実行後にボタンのラベルを「再実行」に変更
+            if (!hasRunOnce) {
+                element.innerHTML = '再実行';
+                hasRunOnce = true;
+            } else {
+                // 2回目以降は「再実行」に戻す
+                element.innerHTML = '再実行';
+            }
         }
     });
+}
+
+/**
+ * ゲームの統合セットアップを行う。
+ * 各要素のレンダリング、ゲームの初期化、イベントハンドラの設定を行う。
+ *
+ * @param {object} params セットアップパラメータ
+ * @param {HTMLElement} params.gameViewerEl ゲーム表示エリア
+ * @param {HTMLElement} params.responseViewerEl AIレスポンス表示エリア
+ * @param {HTMLElement} params.triggerEl トリガーボタン
+ * @param {object} params.mapConfig マップ設定
+ * @param {function} params.pathFetcher 経路取得関数
+ */
+export async function setupGame({
+    gameViewerEl,
+    responseViewerEl,
+    triggerEl,
+    mapConfig,
+    pathFetcher,
+}) {
+    // AIレスポンス表示エリアをレンダリング
+    renderGameAIResponseViewer(responseViewerEl);
+
+    // トリガーボタンをレンダリング
+    renderGameTrigger(triggerEl);
+
+    // ゲームをレンダリング
+    const gameContext = await renderGame({
+        element: gameViewerEl,
+        mapConfig,
+    });
+
+    // プレイヤー移動ボタンをセットアップ
+    setupPlayerMoverButton({
+        element: triggerEl,
+        mapConfig,
+        gameContext,
+        pathFetcher,
+    });
+
+    return gameContext;
 }

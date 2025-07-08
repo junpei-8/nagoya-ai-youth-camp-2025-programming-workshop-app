@@ -8,7 +8,7 @@
  * @param   {number} params.z       Z座標
  * @returns {object}                ロボットのメッシュオブジェクト
  */
-export function renderRobot({ threeJS, x, y, z }) {
+export function renderRobotModel({ threeJS, x, y, z }) {
     const group = new threeJS.Group();
 
     // メインボディ（丸みを帯びた箱型）
@@ -97,7 +97,7 @@ export function renderRobot({ threeJS, x, y, z }) {
  * @param   {number} params.z       Z座標
  * @returns {object}                土管のメッシュオブジェクト
  */
-export function renderObstacle({ threeJS, x, z }) {
+export function renderObstacleModel({ threeJS, x, z }) {
     const group = new threeJS.Group();
 
     // 土管の本体
@@ -129,6 +129,27 @@ export function renderObstacle({ threeJS, x, z }) {
     bottomRim.position.y = 0;
     group.add(bottomRim);
 
+    // 土管の内側（黒い空洞を表現）
+    const innerGeometry = new threeJS.CylinderGeometry(0.35, 0.35, 0.79, 16, 1, true);
+    const innerMaterial = new threeJS.MeshBasicMaterial({
+        color: 0x000000,
+        side: threeJS.BackSide, // 内側から見えるように
+    });
+    const innerPipe = new threeJS.Mesh(innerGeometry, innerMaterial);
+    innerPipe.position.y = 0.395; // 上端が土管の上端とほぼ同じ高さに
+    group.add(innerPipe);
+    
+    // 土管の底（内部を黒く見せるため）
+    const bottomCapGeometry = new threeJS.CircleGeometry(0.35, 16);
+    const bottomCapMaterial = new threeJS.MeshBasicMaterial({
+        color: 0x000000,
+        side: threeJS.DoubleSide,
+    });
+    const bottomCap = new threeJS.Mesh(bottomCapGeometry, bottomCapMaterial);
+    bottomCap.rotation.x = -Math.PI / 2;
+    bottomCap.position.y = 0.01; // ほぼ底の位置
+    group.add(bottomCap);
+
     // 位置を設定
     group.position.set(x, 0, z);
 
@@ -144,13 +165,13 @@ export function renderObstacle({ threeJS, x, z }) {
  * @param   {number} params.z       Z座標
  * @returns {object}                針のメッシュオブジェクト
  */
-export function renderTrap({ threeJS, x, z }) {
+export function renderTrapModel({ threeJS, x, z }) {
     const group = new threeJS.Group();
 
     // ベース（土台）
     const baseGeometry = new threeJS.BoxGeometry(0.9, 0.05, 0.9);
     const baseMaterial = new threeJS.MeshStandardMaterial({
-        color: 0x666666,
+        color: 0x999999,
         metalness: 0.5,
         roughness: 0.3,
     });
@@ -160,7 +181,7 @@ export function renderTrap({ threeJS, x, z }) {
 
     // 針を複数配置
     const spikeMaterial = new threeJS.MeshStandardMaterial({
-        color: 0xaaaaaa,
+        color: 0xcccccc,
         metalness: 0.8,
         roughness: 0.2,
     });
@@ -189,7 +210,7 @@ export function renderTrap({ threeJS, x, z }) {
  * @param   {number} params.z       Z座標
  * @returns {object}                宝箱のメッシュオブジェクト
  */
-export function renderGoal({ threeJS, x, z }) {
+export function renderGoalModel({ threeJS, x, z }) {
     const group = new threeJS.Group();
 
     // 宝箱の本体
@@ -248,7 +269,7 @@ export function renderGoal({ threeJS, x, z }) {
  * @param   {number} params.color   タイルの色
  * @returns {object}                タイルのメッシュオブジェクト
  */
-export function renderTile({ threeJS, x, z, color }) {
+export function renderTileModel({ threeJS, x, z, color }) {
     const geometry = new threeJS.PlaneGeometry(0.98, 0.98);
     const material = new threeJS.MeshStandardMaterial({
         color: color,

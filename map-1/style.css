@@ -21,7 +21,7 @@ body {
     margin-bottom: 24px;
 }
 
-#start-button {
+#game-trigger {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -32,10 +32,94 @@ body {
     border: 1px solid rgba(16, 185, 129, 0.1);
     color: #fff;
     font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    transform: scale(1);
 }
-#start-button:hover {
+
+#game-trigger:hover:not(:disabled) {
     background-color: #059669;
+    transform: scale(1.05);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
-#start-button:active {
+
+#game-trigger:active:not(:disabled) {
     background-color: #047857;
+    transform: scale(0.98);
+}
+
+#game-trigger:disabled {
+    background-color: #9ca3af;
+    border-color: #d1d5db;
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: scale(1);
+}
+
+#game-ai-response-viewer {
+    background-color: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    max-width: 400px;
+    min-height: 60px;
+    display: block;
+}
+
+#ai-response-label {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+#ai-response {
+    font-size: 24px;
+    color: #1f2937;
+    font-weight: 500;
+    letter-spacing: 4px;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+}
+
+#ai-response.visible {
+    opacity: 1;
+}
+
+#ai-response span {
+    display: inline-block;
+    opacity: 0;
+    animation: fadeInArrow 0.4s ease-in-out forwards;
+}
+
+@keyframes fadeInArrow {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
