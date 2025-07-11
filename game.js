@@ -1147,19 +1147,6 @@ function setupRobotMoverButton({
             await previousMovePromise;
             clearInterval(gameFinishCheckInterval);
 
-            // ゴール到達の場合、アラートのOKを待つ
-            if (gameContext.isGameFinished && !gameContext.isGameError) {
-                await new Promise((resolve) => {
-                    const checkInterval = setInterval(() => {
-                        // アラートが閉じられたかチェック
-                        if (!document.querySelector('.alert-overlay')) {
-                            clearInterval(checkInterval);
-                            resolve();
-                        }
-                    }, 100);
-                });
-            }
-
             // ↓ エラーが発生した場合の処理
         } catch (error) {
             const errors = ['ゲームのセットアップに失敗しました。', error];
