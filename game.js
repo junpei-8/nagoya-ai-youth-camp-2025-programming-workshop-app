@@ -725,9 +725,10 @@ export async function renderGame({ element, mapConfig }) {
 /**
  * 宝箱が回転しながら上昇するアニメーション。
  *
- * @param {GameContext} context ゲームコンテキスト
+ * @param   {GameContext}   context ゲームコンテキスト
+ * @returns {Promise<void>}         アニメーション完了後に解決されるPromise
  */
-function animateGoalChest(context) {
+async function animateGoalChest(context) {
     const { renderer, scene, camera, goalChest } = context;
 
     if (!goalChest) return;
@@ -738,38 +739,38 @@ function animateGoalChest(context) {
     const targetY = startY + 1.5; // 1.5ユニット上昇（以前の3から減らした）
     const totalRotations = 5; // 5回転
 
-    function animate(currentTime) {
-        if (startTime === null) startTime = currentTime;
-        const elapsedTime = currentTime - startTime;
-        const t = Math.min(elapsedTime / duration, 1);
+    return new Promise((resolve) => {
+        function animate(currentTime) {
+            if (startTime === null) startTime = currentTime;
+            const elapsedTime = currentTime - startTime;
+            const t = Math.min(elapsedTime / duration, 1);
 
-        // 上昇
-        goalChest.position.y = startY + (targetY - startY) * t;
+            // 上昇
+            goalChest.position.y = startY + (targetY - startY) * t;
 
-        // 回転（最後に正面を向く）
-        if (t < 1) {
-            // アニメーション中は回転
-            goalChest.rotation.y = t * Math.PI * 2 * totalRotations;
-        } else {
-            // アニメーション終了時は正面を向く
-            goalChest.rotation.y = 0;
-            // アニメーション完了後に成功アラートを表示
-            setTimeout(() => {
-                appLogger.success(
-                    'ゴールに到達しました！\nおめでとうございます！',
-                    { alert: true }
-                );
-            }, 100);
+            // 回転（最後に正面を向く）
+            if (t < 1) {
+                // アニメーション中は回転
+                goalChest.rotation.y = t * Math.PI * 2 * totalRotations;
+            } else {
+                // アニメーション終了時は正面を向く
+                goalChest.rotation.y = 0;
+                // アニメーション完了後に成功アラートを表示
+                setTimeout(() => {
+                    appLogger.success('お宝を獲得しました！', { alert: true });
+                    resolve();
+                }, 100);
+            }
+
+            renderer.render(scene, camera);
+
+            if (t < 1) {
+                requestAnimationFrame(animate);
+            }
         }
 
-        renderer.render(scene, camera);
-
-        if (t < 1) {
-            requestAnimationFrame(animate);
-        }
-    }
-
-    requestAnimationFrame(animate);
+        requestAnimationFrame(animate);
+    });
 }
 
 /**
@@ -901,6 +902,7 @@ export async function moveRobot({ context, direction }) {
     // トラップに到達したかチェック
     if (isTrapCollision) {
         context.isGameFinished = true;
+        context.isGameError = true;
         requestAnimationFrame(() => {
             appLogger.error(
                 'トラップに接触しました！\n' + 'ゲームオーバーです。',
@@ -916,7 +918,7 @@ export async function moveRobot({ context, direction }) {
         targetZ === context.position.end.y;
     if (isGoal) {
         context.isGameFinished = true;
-        animateGoalChest(context);
+        await animateGoalChest(context);
     }
 }
 
@@ -995,6 +997,7 @@ function setupRobotMoverButton({
 
             // ゲーム終了フラグをリセット
             gameContext.isGameFinished = false;
+            gameContext.isGameError = false;
 
             // レスポンス表示をクリアしてダミーテキストを設定
             const responseEl = document.getElementById(
@@ -1143,6 +1146,19 @@ function setupRobotMoverButton({
             // 最後の移動の完了を待つ
             await previousMovePromise;
             clearInterval(gameFinishCheckInterval);
+
+            // ゴール到達の場合、アラートのOKを待つ
+            if (gameContext.isGameFinished && !gameContext.isGameError) {
+                await new Promise((resolve) => {
+                    const checkInterval = setInterval(() => {
+                        // アラートが閉じられたかチェック
+                        if (!document.querySelector('.alert-overlay')) {
+                            clearInterval(checkInterval);
+                            resolve();
+                        }
+                    }, 100);
+                });
+            }
 
             // ↓ エラーが発生した場合の処理
         } catch (error) {
