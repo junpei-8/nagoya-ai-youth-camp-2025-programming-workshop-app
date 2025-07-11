@@ -408,7 +408,11 @@ export async function fetchRoutePathWithOpenAI({
     if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new AppError(
-            [`OpenAI API エラー: ${errorData?.message || response.statusText}`],
+            [
+                'OpenAI API のエラーが発生しました。',
+                errorData?.message || response.statusText,
+                errorData,
+            ],
             { shouldAlert: true }
         );
     }

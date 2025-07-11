@@ -626,9 +626,9 @@ function renderMap({ threeJS, element, mapConfig }) {
         position,
         mapDisplayWidth,
         mapDisplayHeight,
-        goalChest, // 宝箱を返す
-        objectPositions, // オブジェクトの位置を返す
-        trapPositions, // トラップの位置を返す
+        goalChest,
+        objectPositions,
+        trapPositions,
     };
 }
 
@@ -752,6 +752,8 @@ async function animateGoalChest(context) {
             if (t < 1) {
                 // アニメーション中は回転
                 goalChest.rotation.y = t * Math.PI * 2 * totalRotations;
+
+                // ↓ アニメーション中はアラートを表示しない
             } else {
                 // アニメーション終了時は正面を向く
                 goalChest.rotation.y = 0;
@@ -1156,17 +1158,8 @@ function setupRobotMoverButton({
             // ↓ 処理が全て完了した時の処理
         } finally {
             element.disabled = false; // 処理完了後またはエラー時にボタンを再度有効化
-
-            // 初回実行後にボタンのラベルを「再実行」に変更
-            if (!hasRunOnce) {
-                element.innerHTML = '再実行';
-                hasRunOnce = true;
-
-                // ↓ 2回目以降は「再実行」に戻す
-            } else {
-                element.innerHTML = '再実行';
-            }
-
+            element.innerHTML = '再実行';
+            hasRunOnce = true;
             appLogger.groupEnd();
         }
     });
