@@ -1,4 +1,4 @@
-import { AppError, AppLogger } from './app.js';
+import { AppError, appLogger } from './app.js';
 
 // ###########
 // ## 型定義 ##
@@ -755,7 +755,7 @@ function animateGoalChest(context) {
             goalChest.rotation.y = 0;
             // アニメーション完了後に成功アラートを表示
             setTimeout(() => {
-                AppLogger.success(
+                appLogger.success(
                     'ゴールに到達しました！\nおめでとうございます！',
                     { alert: true }
                 );
@@ -811,7 +811,7 @@ export async function moveRobot({ context, direction }) {
 
     const config = directionConfig[direction];
     if (!config) {
-        AppLogger.warning(['未知の方向を検出しました。', direction]);
+        appLogger.warning(['未知の方向を検出しました。', direction]);
         return; // 未知の方向の場合は早期リターン
     }
 
@@ -833,7 +833,7 @@ export async function moveRobot({ context, direction }) {
         targetZ < 0 ||
         targetZ >= mapDisplayHeight;
     if (isOutOfBounds) {
-        AppLogger.debug([
+        appLogger.debug([
             `盤外への移動をブロックしました。`,
             `(${currentX},${currentZ}) -> (${targetX},${targetZ})`,
         ]);
@@ -845,7 +845,10 @@ export async function moveRobot({ context, direction }) {
         (pos) => pos.x === targetX && pos.y === targetZ
     );
     if (isObjectCollision) {
-        AppLogger.debug('オブジェクトとの衝突を検出しました。');
+        appLogger.debug([
+            'オブジェクトとの衝突を検出しました。',
+            `(${currentX},${currentZ}) -> (${targetX},${targetZ})`,
+        ]);
         return;
     }
 
@@ -899,7 +902,7 @@ export async function moveRobot({ context, direction }) {
     if (isTrapCollision) {
         context.isGameFinished = true;
         requestAnimationFrame(() => {
-            AppLogger.error(
+            appLogger.error(
                 'トラップに接触しました！\n' + 'ゲームオーバーです。',
                 { alert: true }
             );
@@ -928,7 +931,6 @@ function resetGoalChest(gameContext) {
         // 宝箱の回転と位置を初期化
         goalChest.rotation.y = 0;
         goalChest.position.y = 0;
-        AppLogger.info('宝箱を初期状態にリセットしました');
     }
 }
 
@@ -982,9 +984,9 @@ function setupRobotMoverButton({
     // 初回実行フラグ
     let hasRunOnce = false;
     element.addEventListener('click', async () => {
-        AppLogger.groupCollapsed('ロボット移動処理開始');
+        appLogger.groupCollapsed('スタート');
 
-        AppLogger.info('AIによる経路指示に基づくプレイヤー移動を開始します...');
+        appLogger.info('AIによる経路指示に基づくプレイヤー移動を開始します...');
         element.disabled = true; // 処理中にボタンを無効化
 
         // 再実行時に宝箱をリセット
@@ -1021,7 +1023,7 @@ function setupRobotMoverButton({
 
         // スタート地点が見つからない場合はエラーを表示して終了
         if (!startPositionFound) {
-            AppLogger.error(
+            appLogger.error(
                 'スタート地点がマップ設定に見つかりませんでした。ロボットはリセットされません。',
                 { alert: true }
             );
@@ -1039,14 +1041,17 @@ function setupRobotMoverButton({
         // スピナーを追加
         element.innerHTML = '<span class="spinner"></span>';
         try {
+            // AIへのリクエスト開始をログ
+            appLogger.info('AIに経路を問い合わせています...');
+
             // 経路を取得
             const moves = await pathFetcher();
 
+            // AIからのレスポンス完了をログ
+            appLogger.info(['AIからの経路を取得しました。', moves]);
+
             // ChatGPTからのレスポンスが完了したら「実行中」に変更
             element.innerHTML = '実行中';
-
-            // 経路をコンソールに出力
-            AppLogger.debug(['AIからの経路。', moves]);
 
             // レスポンス表示領域の更新
             const responseEl = document.getElementById(
@@ -1075,7 +1080,7 @@ function setupRobotMoverButton({
             // 経路がない場合はエラーを表示して終了
             if (!moves || moves.length === 0) {
                 const errorMessage = 'AIから有効な経路が返されませんでした。';
-                AppLogger.error(errorMessage, { alert: true });
+                appLogger.error(errorMessage, { alert: true });
                 return;
             }
 
@@ -1099,7 +1104,7 @@ function setupRobotMoverButton({
             for (let i = 0; i < moveSequence.length; i++) {
                 // 移動を中断すべきかチェック
                 if (!shouldContinue || gameContext.isGameFinished) {
-                    AppLogger.info('ゲーム終了のため移動を中断します。');
+                    appLogger.info('ゲーム終了のため移動を中断します。');
                     break;
                 }
 
@@ -1142,7 +1147,7 @@ function setupRobotMoverButton({
             // ↓ エラーが発生した場合の処理
         } catch (error) {
             const errors = ['ゲームのセットアップに失敗しました。', error];
-            error instanceof AppError ? error.log() : AppLogger.error(errors);
+            error instanceof AppError ? error.log() : appLogger.error(errors);
             element.innerHTML = originalHTML; // エラー時もHTMLを復元
 
             // ↓ 処理が全て完了した時の処理
@@ -1159,7 +1164,7 @@ function setupRobotMoverButton({
                 element.innerHTML = '再実行';
             }
 
-            AppLogger.groupEnd();
+            appLogger.groupEnd();
         }
     });
 }
@@ -1174,30 +1179,30 @@ function setupRobotMoverButton({
  * @returns {object}                                    取得した要素のオブジェクト
  * @throws                                              必要な要素が見つからない場合
  */
-function getGameElements(elements = {}) {
-    const gameViewerEl =
+function getGameElement(elements = {}) {
+    const viewerEl =
         elements.gameViewer || document.getElementById('game-viewer');
-    if (!gameViewerEl) {
+    if (!viewerEl) {
         throw new AppError('ゲーム表示エリアが見つかりません。');
     }
 
-    const gameResponseViewerEl =
+    const responseViewerEl =
         elements.gameResponseViewer ||
         document.getElementById('game-response-viewer');
-    if (!gameResponseViewerEl) {
+    if (!responseViewerEl) {
         throw new AppError('AIレスポンス表示エリアが見つかりません。');
     }
 
-    const gameTriggerEl =
+    const triggerEl =
         elements.gameTrigger || document.getElementById('game-trigger');
-    if (!gameTriggerEl) {
+    if (!triggerEl) {
         throw new AppError('トリガーボタンが見つかりません。');
     }
 
     return {
-        gameViewerEl,
-        gameResponseViewerEl,
-        gameTriggerEl,
+        viewerEl,
+        responseViewerEl,
+        triggerEl,
     };
 }
 
@@ -1215,28 +1220,23 @@ function getGameElements(elements = {}) {
  */
 export async function setupGame({ mapConfig, pathFetcher, element = {} }) {
     try {
-        const {
-            // ゲーム要素を取得
-            gameViewerEl,
-            gameResponseViewerEl,
-            gameTriggerEl,
-        } = getGameElements(element);
+        const gameElement = getGameElement(element);
 
         // AIレスポンス表示エリアをレンダリング
-        renderGameResponseViewer(gameResponseViewerEl);
+        renderGameResponseViewer(gameElement.responseViewerEl);
 
         // トリガーボタンをレンダリング
-        renderGameTrigger(gameTriggerEl);
+        renderGameTrigger(gameElement.triggerEl);
 
         // ゲームをレンダリング
         const gameContext = await renderGame({
-            element: gameViewerEl,
+            element: gameElement.viewerEl,
             mapConfig,
         });
 
         // ロボット移動ボタンをセットアップ
         setupRobotMoverButton({
-            element: gameTriggerEl,
+            element: gameElement.triggerEl,
             mapConfig,
             gameContext,
             pathFetcher,
@@ -1248,6 +1248,6 @@ export async function setupGame({ mapConfig, pathFetcher, element = {} }) {
     } catch (error) {
         error instanceof AppError
             ? error.log()
-            : AppLogger.error(['ゲームのセットアップに失敗しました。', error]);
+            : appLogger.error(['ゲームのセットアップに失敗しました。', error]);
     }
 }

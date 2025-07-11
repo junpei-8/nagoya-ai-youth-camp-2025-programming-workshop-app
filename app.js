@@ -82,7 +82,7 @@ function log(params, options = {}) {
 /**
  * アプリケーション用の共通ロガー関数。
  */
-export const AppLogger = {
+export const appLogger = {
     /**
      * 成功メッセージをログに出力する。
      *
@@ -160,7 +160,12 @@ export const AppLogger = {
      * @param {string} label グループのラベル
      */
     groupCollapsed(label) {
-        console.groupCollapsed(label);
+        const timestamp = new Date().toLocaleTimeString();
+        const color = '#9C27B0'; // 紫色
+        console.groupCollapsed(
+            `%c${label} ${timestamp}`,
+            `color: ${color}; font-weight: bold;`
+        );
     },
 
     /**
@@ -226,6 +231,6 @@ export class AppError extends Error {
         const logMessage = Array.isArray(this.details)
             ? [...this.details, this]
             : [this.details, this];
-        AppLogger.error(logMessage, { alert: this.shouldAlert });
+        appLogger.error(logMessage, { alert: this.shouldAlert });
     }
 }
