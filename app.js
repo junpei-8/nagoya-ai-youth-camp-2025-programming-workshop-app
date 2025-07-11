@@ -157,13 +157,13 @@ export const appLogger = {
     /**
      * 折りたたみ可能なグループを開始する。
      *
-     * @param {string} label グループのラベル
+     * @param {string|undefined} label グループのラベル
      */
     groupCollapsed(label) {
         const timestamp = new Date().toLocaleTimeString();
         const color = '#9C27B0'; // 紫色
         console.groupCollapsed(
-            `%c${label} ${timestamp}`,
+            `%c${label ? `${label} ` : ''}${timestamp}`,
             `color: ${color}; font-weight: bold;`
         );
     },

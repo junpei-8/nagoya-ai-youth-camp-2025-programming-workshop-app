@@ -984,9 +984,9 @@ function setupRobotMoverButton({
     // 初回実行フラグ
     let hasRunOnce = false;
     element.addEventListener('click', async () => {
-        appLogger.groupCollapsed('スタート');
+        appLogger.groupCollapsed();
 
-        appLogger.info('AIによる経路指示に基づくプレイヤー移動を開始します...');
+        appLogger.info('AIによる経路指示に基づくプレイヤー移動を開始します。');
         element.disabled = true; // 処理中にボタンを無効化
 
         // 再実行時に宝箱をリセット
@@ -1042,7 +1042,7 @@ function setupRobotMoverButton({
         element.innerHTML = '<span class="spinner"></span>';
         try {
             // AIへのリクエスト開始をログ
-            appLogger.info('AIに経路を問い合わせています...');
+            appLogger.info('AIに経路を問い合わせています。');
 
             // 経路を取得
             const moves = await pathFetcher();
