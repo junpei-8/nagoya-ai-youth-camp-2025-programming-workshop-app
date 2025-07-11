@@ -12,16 +12,8 @@
             import { routePrompt } from './ai-route-prompt.js';
             import { mapConfig } from './map.js';
 
-            // DOM 要素の取得
-            const gameViewerEl = document.getElementById('game-viewer');
-            const responseViewerEl = document.getElementById('game-ai-response-viewer');
-            const triggerEl = document.getElementById('game-trigger');
-
             // ゲームをセットアップ
             await setupGame({
-                gameViewerEl,
-                responseViewerEl,
-                triggerEl,
                 mapConfig,
                 pathFetcher: () =>
                     fetchRoutePathWithOpenAI({
@@ -32,10 +24,9 @@
             });
         </script>
     </head>
-
     <body>
         <div id="game-viewer"></div>
-        <div id="game-ai-response-viewer"></div>
+        <div id="game-response-viewer"></div>
         <button id="game-trigger"></button>
     </body>
 </html>

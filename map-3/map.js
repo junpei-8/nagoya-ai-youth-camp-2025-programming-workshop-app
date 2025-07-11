@@ -7,38 +7,42 @@
  * @type {import("../game").MapConfig}
  */
 export const mapConfig = {
-    layout: [
-        ['s', 'n', 'n', 'n', 'n', 'n', 'n', 'n', 'n', 'n'],
-        ['n', 'n', 't', 'n', 'o', 'n', 't', 'n', 'n', 'n'],
-        ['n', 'n', 'n', 'n', 'n', 'n', 'n', 'n', 't', 'n'],
-        ['n', 't', 'n', 'n', 'n', 't', 'n', 'n', 'n', 'n'],
-        ['n', 'n', 'n', 'o', 'n', 'n', 'n', 'n', 'n', 'n'],
-        ['n', 'n', 't', 'n', 'n', 'n', 't', 'n', 'o', 'n'],
-        ['n', 'n', 'n', 'n', 'n', 'n', 'n', 'n', 'n', 'n'],
-        ['n', 't', 'n', 'n', 't', 'n', 'n', 'n', 'n', 'n'],
-        ['n', 'n', 'n', 'n', 'n', 'n', 'n', 't', 'n', 'n'],
-        ['n', 'n', 'n', 'n', 'n', 'n', 'n', 'n', 'n', 'e'],
-    ],
     cell: {
         s: {
             type: 'start',
             color: '#6B7ADB',
+            description: 'スタート地点',
         },
         e: {
             type: 'end',
             color: '#F59E0B',
+            description: 'お宝の場所',
         },
         t: {
             type: 'trap',
             color: '#DC2626',
+            description: 'トラップ',
         },
         o: {
             type: 'object',
             color: '#92400E',
+            description: 'オブジェクト（土管）',
         },
         n: {
             type: 'normal',
             color: '#D4A574',
         },
     },
+    layout: [
+        ['s', 'n', 'n', 'n', 'n', 'n', 'n', 'n', 'n', 'n'],
+        ['n', 'n', 'n', 'n', 'o', 'n', 'n', 'n', 'n', 'n'],
+        ['n', 'n', 't', 'n', 'o', 'n', 't', 'n', 'n', 'n'],
+        ['n', 'n', 'n', 'n', 'o', 'n', 'n', 'n', 'n', 'n'],
+        ['o', 'o', 'o', 'n', 'n', 'n', 'o', 'o', 'o', 'n'],
+        ['n', 'n', 'n', 'n', 't', 'n', 'n', 'n', 'n', 'n'],
+        ['n', 't', 'n', 'o', 'o', 'o', 'n', 't', 'n', 'n'],
+        ['n', 'n', 'n', 'n', 'n', 'n', 'n', 'n', 'n', 'n'],
+        ['n', 'n', 't', 'n', 'o', 'n', 't', 'n', 'n', 'n'],
+        ['n', 'n', 'n', 'n', 'n', 'n', 'n', 'n', 'n', 'e'],
+    ],
 };

@@ -1,9 +1,9 @@
 import {
-    renderRobotModel,
-    renderObstacleModel,
-    renderTrapModel,
     renderGoalModel,
+    renderObstacleModel,
+    renderRobotModel,
     renderTileModel,
+    renderTrapModel,
 } from './game-model.js';
 
 // ###########
@@ -77,10 +77,11 @@ function animateFrame() {
  */
 
 /**
- * カメラの設定を更新する共通関数
- * @param {object} params パラメータ
- * @param {object} params.camera カメラオブジェクト
- * @param {number} params.mapDisplayWidth マップの幅
+ * カメラの設定を更新する共通関数。
+ *
+ * @param {object} params                  パラメータ
+ * @param {object} params.camera           カメラオブジェクト
+ * @param {number} params.mapDisplayWidth  マップの幅
  * @param {number} params.mapDisplayHeight マップの高さ
  */
 function updateCameraSettings({ camera, mapDisplayWidth, mapDisplayHeight }) {
@@ -248,6 +249,7 @@ function renderMap({ threeJS, element, mapConfig }) {
                     // トラップの位置を記録
                     trapPositions.push({ x: i, y: j });
                     break;
+
                 case 'end':
                     // ゴールは宝箱で表示するが、タイルの色も表示
                     let endColorValue = 0xcccccc;
@@ -272,6 +274,7 @@ function renderMap({ threeJS, element, mapConfig }) {
                     element = renderGoalModel({ threeJS, x: i, z: j });
                     goalChest = element; // 宝箱を保存
                     break;
+
                 case 'start':
                     // スタートタイルは通常のタイルとして描画
                     let startColorValue = 0xcccccc;
@@ -291,6 +294,7 @@ function renderMap({ threeJS, element, mapConfig }) {
                         color: startColorValue,
                     });
                     break;
+
                 case 'normal':
                 default:
                     // 通常のタイルを描画
@@ -338,29 +342,29 @@ function renderMap({ threeJS, element, mapConfig }) {
 }
 
 /**
- * プレイヤーキャラクターを作成し、シーンに追加する。
+ * ロボットキャラクターを作成し、シーンに追加する。
  *
- * @param   {object}     params            プレイヤー作成パラメータ
+ * @param   {object}     params            ロボット作成パラメータ
  * @param   {ThreeJS}    params.threeJS    Three.js インスタンス
  * @param   {MapContext} params.mapContext マップコンテキスト
- * @returns                                     プレイヤー
+ * @returns                                ロボット
  */
-function createPlayer({ threeJS, mapContext }) {
-    // ロボット（プレイヤー）を作成
-    const player = renderRobotModel({
+function createRobot({ threeJS, mapContext }) {
+    // ロボットを作成
+    const robot = renderRobotModel({
         threeJS,
         x: Math.round(mapContext.position.start.x),
         y: 0, // Y座標は renderRobot 内で調整される
         z: Math.round(mapContext.position.start.y),
     });
 
-    // プレイヤーをシーンに追加
-    mapContext.scene.add(player);
+    // ロボットをシーンに追加
+    mapContext.scene.add(robot);
 
-    // プレイヤー表示のための初期レンダリング
+    // ロボット表示のための初期レンダリング
     mapContext.renderer.render(mapContext.scene, mapContext.camera);
 
-    return player;
+    return robot;
 }
 
 /**
@@ -387,8 +391,8 @@ export async function renderGame({ element, mapConfig }) {
         mapConfig,
     });
 
-    // プレイヤーを作成
-    const player = createPlayer({
+    // ロボットを作成
+    const robot = createRobot({
         threeJS,
         mapContext,
     });
@@ -418,7 +422,7 @@ export async function renderGame({ element, mapConfig }) {
     // ゲームコンテキストを返す
     return {
         threeJS,
-        player,
+        robot,
         ...mapContext,
     };
 }
@@ -485,20 +489,20 @@ export const movementKey = {
 };
 
 /**
- * プレイヤーを指定された方向に1ステップ移動させ、アニメーション表示する。
+ * ロボットを指定された方向に1ステップ移動させ、アニメーション表示する。
  *
  * @param   {object}        params           移動パラメータ
  * @param   {GameContext}   params.context   ゲームコンテキストオブジェクト
  * @param   {string}        params.direction 移動方向
  * @returns {Promise<void>}              アニメーション完了時に解決されるPromise
  */
-export async function movePlayer({ context, direction }) {
+export async function moveRobot({ context, direction }) {
     const {
         threeJS,
         scene,
         camera,
         renderer,
-        player,
+        robot,
         mapDisplayWidth,
         mapDisplayHeight,
     } = context;
@@ -513,7 +517,7 @@ export async function movePlayer({ context, direction }) {
 
     const config = directionConfig[direction];
     if (!config) {
-        console.log('未知の方向:', direction);
+        console.warn('未知の方向:', direction);
         return; // 未知の方向の場合は早期リターン
     }
 
@@ -521,9 +525,9 @@ export async function movePlayer({ context, direction }) {
     const targetRotationY = config.rotation;
 
     // 現在位置を整数に丸めてから計算（浮動小数点誤差を防ぐ）
-    const currentX = Math.round(player.position.x);
-    const currentZ = Math.round(player.position.z);
-    const startPos = player.position.clone();
+    const currentX = Math.round(robot.position.x);
+    const currentZ = Math.round(robot.position.z);
+    const startPos = robot.position.clone();
 
     const targetX = currentX + stepVec.x;
     const targetZ = currentZ + stepVec.z;
@@ -535,7 +539,7 @@ export async function movePlayer({ context, direction }) {
         targetZ < 0 ||
         targetZ >= mapDisplayHeight;
     if (isOutOfBounds) {
-        console.log(
+        console.debug(
             `盤外への移動をブロック: (${currentX},${currentZ}) -> (${targetX},${targetZ})`
         );
         return;
@@ -546,7 +550,7 @@ export async function movePlayer({ context, direction }) {
         (pos) => pos.x === targetX && pos.y === targetZ
     );
     if (isObjectCollision) {
-        console.log('オブジェクトとの衝突を検出しました');
+        console.debug('オブジェクトとの衝突を検出しました');
         return;
     }
 
@@ -556,12 +560,12 @@ export async function movePlayer({ context, direction }) {
     );
 
     // 最終位置も整数座標にする
-    const endPos = new threeJS.Vector3(targetX, player.position.y, targetZ);
+    const endPos = new threeJS.Vector3(targetX, robot.position.y, targetZ);
 
     // アニメーションの設定
     const duration = 240;
     const rotationDuration = 100; // 回転用の短い持続時間
-    const startRotationY = player.rotation.y;
+    const startRotationY = robot.rotation.y;
 
     // 回転角度の差を最短経路に調整
     let rotationDiff = targetRotationY - startRotationY;
@@ -579,10 +583,10 @@ export async function movePlayer({ context, direction }) {
         const rotationT = Math.min(elapsedTime / rotationDuration, 1); // 回転用の進行度
 
         // 位置の補間
-        player.position.lerpVectors(startPos, endPos, t);
+        robot.position.lerpVectors(startPos, endPos, t);
 
         // 回転の補間（より早く完了）
-        player.rotation.y = startRotationY + rotationDiff * rotationT;
+        robot.rotation.y = startRotationY + rotationDiff * rotationT;
 
         renderer.render(scene, camera); // シーンをレンダリング
 
@@ -599,7 +603,7 @@ export async function movePlayer({ context, direction }) {
     // トラップに到達したかチェック
     if (isTrapCollision) {
         console.log('トラップに接触しました！');
-        context.gameOver = true;
+        context.isGameFinished = true;
         requestAnimationFrame(() =>
             alert('トラップに接触しました！ ゲームオーバーです。')
         );
@@ -612,6 +616,7 @@ export async function movePlayer({ context, direction }) {
         targetZ === context.position.end.y;
     if (isGoal) {
         console.log('ゴールに到達しました！');
+        context.isGameFinished = true;
         animateGoalChest(context);
     }
 }
@@ -639,12 +644,13 @@ function resetGoalChest(gameContext) {
 function renderGameAIResponseViewer(element) {
     // ラベルを作成
     const label = document.createElement('div');
-    label.id = 'ai-response-label';
-    label.textContent = 'AIからの指示';
+    label.id = 'game-response-viewer-label';
+    label.textContent = 'AIからの回答';
 
     // レスポンス表示エリアを作成
     const response = document.createElement('div');
-    response.id = 'ai-response';
+    response.id = 'game-response-viewer-content';
+    response.innerHTML = '↑'; // ダミーテキスト
 
     // 要素を追加
     element.appendChild(label);
@@ -661,7 +667,7 @@ function renderGameTrigger(element) {
 }
 
 /**
- * プレイヤー移動処理を開始するボタンのセットアップとイベントリスナーの追加。
+ * ロボット移動処理を開始するボタンのセットアップとイベントリスナーの追加。
  *
  * @param {object}            params             設定パラメータ
  * @param {HTMLButtonElement} params.element     処理を開始するボタン要素
@@ -669,13 +675,13 @@ function renderGameTrigger(element) {
  * @param {GameContext}       params.gameContext ゲームコンテキストオブジェクト
  * @param {function}          params.pathFetcher AIから経路を取得する関数
  */
-function setupPlayerMoverButton({
+function setupRobotMoverButton({
     element,
     mapConfig,
     gameContext,
     pathFetcher,
 }) {
-    const { scene, camera, renderer, player } = gameContext;
+    const { scene, camera, renderer, robot } = gameContext;
 
     // 初回実行フラグ
     let hasRunOnce = false;
@@ -683,12 +689,6 @@ function setupPlayerMoverButton({
     // ボタンの初期化はrenderGameTriggerで実行済み
 
     // GameContextにmapDisplayWidthとmapDisplayHeightが含まれているか確認
-    console.log(
-        'GameContext check:',
-        gameContext.mapDisplayWidth,
-        'x',
-        gameContext.mapDisplayHeight
-    );
 
     element.addEventListener('click', async () => {
         console.log('AIによる経路指示に基づくプレイヤー移動を開始します...');
@@ -698,11 +698,13 @@ function setupPlayerMoverButton({
         if (hasRunOnce) {
             resetGoalChest(gameContext);
 
-            // ゲームオーバーフラグをリセット
-            gameContext.gameOver = false;
+            // ゲーム終了フラグをリセット
+            gameContext.isGameFinished = false;
 
             // レスポンス表示をクリア
-            const responseEl = document.getElementById('ai-response');
+            const responseEl = document.getElementById(
+                'game-response-viewer-content'
+            );
             if (responseEl) {
                 responseEl.innerHTML = '';
                 responseEl.classList.remove('visible');
@@ -727,19 +729,17 @@ function setupPlayerMoverButton({
         // スタート地点が見つからない場合はエラーを表示して終了
         if (!startPositionFound) {
             alert(
-                'スタート地点がマップ設定に見つかりませんでした。プレイヤーはリセットされません。'
+                'スタート地点がマップ設定に見つかりませんでした。ロボットはリセットされません。'
             );
             return;
         }
 
-        // プレイヤーをスタート地点に移動（整数座標に丸める）
-        player.position.set(Math.round(startX), 0, Math.round(startY));
-        // プレイヤーの向きを初期化（下向き = 手前向き）
-        player.rotation.y = 0;
+        // ロボットをスタート地点に移動（整数座標に丸める）
+        robot.position.set(Math.round(startX), 0, Math.round(startY));
+        robot.rotation.y = 0; // ロボットの向きを初期化（下向き = 手前向き）
         renderer.render(scene, camera);
 
         // ローディング表示
-        const originalText = element.textContent;
         const originalHTML = element.innerHTML;
 
         // スピナーを追加
@@ -749,31 +749,26 @@ function setupPlayerMoverButton({
             // 経路を取得
             const moves = await pathFetcher();
 
-            // ChatGPTからのレスポンスが完了したら「実行中...」に変更
-            element.innerHTML = '実行中...';
+            // ChatGPTからのレスポンスが完了したら「実行中」に変更
+            element.innerHTML = '実行中';
 
             // 経路をコンソールに出力
             console.log('AIからの経路:', moves);
 
             // レスポンス表示領域の更新
-            const responseEl = document.getElementById('ai-response');
+            const responseEl = document.getElementById(
+                'game-response-viewer-content'
+            );
 
             if (responseEl) {
                 responseEl.innerHTML = '';
                 responseEl.classList.remove('visible');
 
                 // 矢印を一つずつ表示
-                const arrows = moves[0].split('');
-                const directionMap = {
-                    u: '↑',
-                    d: '↓',
-                    l: '←',
-                    r: '→',
-                };
-
-                arrows.forEach((arrow, index) => {
+                const moveChars = moves[0].split('');
+                moveChars.forEach((char, index) => {
                     const span = document.createElement('span');
-                    span.textContent = directionMap[arrow] || arrow;
+                    span.textContent = char;
                     span.style.animationDelay = `${index * 100}ms`;
                     responseEl.appendChild(span);
                 });
@@ -797,11 +792,11 @@ function setupPlayerMoverButton({
             let shouldContinue = true;
             const movePromises = [];
 
-            // ゲームオーバー監視用のインターバル
-            const gameOverCheckInterval = setInterval(() => {
-                if (gameContext.gameOver) {
+            // ゲーム終了監視用のインターバル
+            const gameFinishCheckInterval = setInterval(() => {
+                if (gameContext.isGameFinished) {
                     shouldContinue = false;
-                    clearInterval(gameOverCheckInterval);
+                    clearInterval(gameFinishCheckInterval);
                 }
             }, 40);
 
@@ -810,8 +805,8 @@ function setupPlayerMoverButton({
 
             for (let i = 0; i < moveSequence.length; i++) {
                 // 移動を中断すべきかチェック
-                if (!shouldContinue || gameContext.gameOver) {
-                    console.log('ゲームオーバーのため移動を中断します');
+                if (!shouldContinue || gameContext.isGameFinished) {
+                    console.log('ゲーム終了のため移動を中断します');
                     break;
                 }
 
@@ -820,8 +815,8 @@ function setupPlayerMoverButton({
 
                 // 前の移動完了と遅延を待ってから次の移動を開始
                 previousMovePromise = previousMovePromise.then(async () => {
-                    // ゲームオーバーチェック
-                    if (gameContext.gameOver) {
+                    // ゲーム終了チェック
+                    if (gameContext.isGameFinished) {
                         shouldContinue = false;
                         return;
                     }
@@ -833,14 +828,14 @@ function setupPlayerMoverButton({
                         );
                     }
 
-                    // 再度ゲームオーバーチェック
-                    if (gameContext.gameOver) {
+                    // 再度ゲーム終了チェック
+                    if (gameContext.isGameFinished) {
                         shouldContinue = false;
                         return;
                     }
 
                     // 移動を実行
-                    return movePlayer({
+                    return moveRobot({
                         context: gameContext,
                         direction: moveChar,
                     });
@@ -850,12 +845,12 @@ function setupPlayerMoverButton({
             // 最後の移動の完了を待つ
             await previousMovePromise;
 
-            clearInterval(gameOverCheckInterval);
+            clearInterval(gameFinishCheckInterval);
 
             // ↓ エラーが発生した場合の処理
         } catch (error) {
             console.error(
-                'AI経路取得またはプレイヤー移動の実行中にエラーが発生しました:',
+                'AI経路取得またはロボット移動の実行中にエラーが発生しました:',
                 error
             );
             // エラー時もHTMLを復元
@@ -881,25 +876,45 @@ function setupPlayerMoverButton({
  * ゲームの統合セットアップを行う。
  * 各要素のレンダリング、ゲームの初期化、イベントハンドラの設定を行う。
  *
- * @param {object} params セットアップパラメータ
- * @param {HTMLElement} params.gameViewerEl ゲーム表示エリア
- * @param {HTMLElement} params.responseViewerEl AIレスポンス表示エリア
- * @param {HTMLElement} params.triggerEl トリガーボタン
- * @param {object} params.mapConfig マップ設定
- * @param {function} params.pathFetcher 経路取得関数
+ * @param {object}      params                      セットアップパラメータ
+ * @param {object}      params.mapConfig            マップ設定
+ * @param {function}    params.pathFetcher          経路取得関数
+ * @param {HTMLElement} params.gameViewerEl         ゲーム表示エリア (デフォルト: id='game-viewer')
+ * @param {HTMLElement} params.gameResponseViewerEl AIレスポンス表示エリア (デフォルト: id='game-response-viewer')
+ * @param {HTMLElement} params.gameTriggerEl        トリガーボタン (デフォルト: id='game-trigger')
+
  */
 export async function setupGame({
-    gameViewerEl,
-    responseViewerEl,
-    triggerEl,
     mapConfig,
     pathFetcher,
+    gameViewerEl,
+    gameResponseViewerEl,
+    gameTriggerEl,
 }) {
+    // 要素の表示量機に関する要素を取得
+    gameViewerEl = gameViewerEl || document.getElementById('game-viewer');
+    if (!gameViewerEl) {
+        throw new Error('ゲーム表示エリアが見つかりません。');
+    }
+
+    // ゲームのAIレスポンス表示エリアを取得
+    gameResponseViewerEl =
+        gameResponseViewerEl || document.getElementById('game-response-viewer');
+    if (!gameResponseViewerEl) {
+        throw new Error('AIレスポンス表示エリアが見つかりません。');
+    }
+
+    // ゲームのトリガーボタンを取得
+    gameTriggerEl = gameTriggerEl || document.getElementById('game-trigger');
+    if (!gameTriggerEl) {
+        throw new Error('トリガーボタンが見つかりません。');
+    }
+
     // AIレスポンス表示エリアをレンダリング
-    renderGameAIResponseViewer(responseViewerEl);
+    renderGameAIResponseViewer(gameResponseViewerEl);
 
     // トリガーボタンをレンダリング
-    renderGameTrigger(triggerEl);
+    renderGameTrigger(gameTriggerEl);
 
     // ゲームをレンダリング
     const gameContext = await renderGame({
@@ -907,9 +922,9 @@ export async function setupGame({
         mapConfig,
     });
 
-    // プレイヤー移動ボタンをセットアップ
-    setupPlayerMoverButton({
-        element: triggerEl,
+    // ロボット移動ボタンをセットアップ
+    setupRobotMoverButton({
+        element: gameTriggerEl,
         mapConfig,
         gameContext,
         pathFetcher,

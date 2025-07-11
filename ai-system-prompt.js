@@ -20,6 +20,7 @@ export function generateSystemPrompt(mapConfig) {
         generateLimitedInformationSection(),
         generateNumericalUnderstandingSection(),
         generateStepByStepSection(),
+        generateAmbiguousInstructionSection(),
         generateImplicitInformationSection(),
         generateInterpretationPrinciplesSection(),
         generateExecutionMindsetSection(),
@@ -127,8 +128,7 @@ function generateMapLayoutSection(mapConfig) {
         })
     );
 
-    console.log('maskedLayout');
-    console.log(maskedLayout);
+    
 
     return (
         `## この固有マップのレイアウトの説明\n` +
@@ -242,6 +242,25 @@ function generateStepByStepSection() {
         `指示「1. 下に4マス 2. 右に1マス 3. 下に1マス 4. 右に4マス」の場合：\n` +
         `- 正しい出力: \`${movementKey.DOWN}${movementKey.DOWN}${movementKey.DOWN}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.RIGHT}${movementKey.RIGHT}${movementKey.RIGHT}\`\n` +
         `- 間違った出力: \`${movementKey.DOWN}${movementKey.DOWN}${movementKey.DOWN}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.DOWN}${movementKey.RIGHT}${movementKey.RIGHT}${movementKey.RIGHT}${movementKey.RIGHT}\` （余計な下移動を追加）\n`
+    );
+}
+
+/**
+ * 曖昧な指示への対処セクションを生成。
+ *
+ * @returns {string}
+ */
+function generateAmbiguousInstructionSection() {
+    return (
+        `## 曖昧な指示への対処\n` +
+        `以下のような曖昧な指示を受けた場合の対処法：\n` +
+        `- 「好きなように動いて」「自由に動いて」「適当に動いて」など\n` +
+        `  → ランダムな方向に8方向ほど移動する（例：${movementKey.UP}${movementKey.RIGHT}${movementKey.DOWN}）\n` +
+        `- 「探索して」「見て回って」など\n` +
+        `  → 現在位置の周辺を小さく移動する（例：${movementKey.RIGHT}${movementKey.DOWN}${movementKey.LEFT}${movementKey.UP}）\n` +
+        `\n` +
+        `重要： ゴールの位置は不明なので、特定の方向に向かって進むべきではありません。\n` +
+        `曖昧な指示の場合は、移動を最小限に留め、より具体的な指示を待つような動きをしてください。\n`
     );
 }
 
