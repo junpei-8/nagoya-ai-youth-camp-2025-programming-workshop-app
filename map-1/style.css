@@ -1,3 +1,9 @@
+/**
+ * ##########
+ * ## Core ##
+ * ##########
+ */
+
 html,
 body {
     margin: 0;
@@ -8,9 +14,17 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    height: 100svh;
     overflow: hidden;
+    height: 100svh;
+    padding: 24px;
+    box-sizing: border-box;
 }
+
+/**
+ * ##########################
+ * ## Game Response Viewer ##
+ * ##########################
+ */
 
 #game-viewer {
     display: flex;
@@ -19,15 +33,19 @@ body {
     overflow: hidden;
     flex: 1;
     width: 100%;
-    padding: 24px;
-    box-sizing: border-box;
 }
+
+/**
+ * ##########################
+ * ## Game Response Viewer ##
+ * ##########################
+ */
 
 #game-response-viewer {
     display: block;
     width: 100%;
     max-width: 480px;
-    margin: 16px;
+    margin-bottom: 24px;
     padding: 16px;
     box-sizing: border-box;
     background-color: #f3f4f6;
@@ -61,8 +79,25 @@ body {
 #game-response-viewer-content span {
     display: inline-block;
     opacity: 0;
-    animation: fadeInArrow 0.4s ease-in-out forwards;
+    animation: gameResponseViewerContentFadeInArrow 0.4s ease-in-out forwards;
 }
+
+@keyframes gameResponseViewerContentFadeInArrow {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/**
+ * ##################
+ * ## Game Trigger ##
+ * ##################
+ */
 
 #game-trigger {
     display: flex;
@@ -70,15 +105,15 @@ body {
     align-items: center;
     width: 100%;
     max-width: 480px;
-    margin: 16px 0 24px;
-    padding: 10px 16px;
+    min-height: 48px;
+    padding: 12px 16px;
     box-sizing: border-box;
     color: #fff;
     font-size: 14px;
     font-weight: 500;
     border-radius: 6px;
-    background-color: #3e9f78;
     border: 1px solid rgba(62, 159, 120, 0.1);
+    background-color: #3e9f78;
     cursor: pointer;
     transform: scale(1);
     transition: all 0.2s ease-in-out;
@@ -103,29 +138,17 @@ body {
     opacity: 0.6;
 }
 
-@keyframes fadeInArrow {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.spinner {
+#game-trigger .spinner {
     display: inline-block;
     width: 16px;
     height: 16px;
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-top-color: #fff;
     border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin-right: 8px;
+    animation: gameTriggerSpinner 0.8s linear infinite;
 }
 
-@keyframes spin {
+@keyframes gameTriggerSpinner {
     to {
         transform: rotate(360deg);
     }

@@ -1,10 +1,4 @@
-import {
-    renderGoalModel,
-    renderObstacleModel,
-    renderRobotModel,
-    renderTileModel,
-    renderTrapModel,
-} from './game-model.js';
+import { AppError, AppLogger } from './app.js';
 
 // ###########
 // ## 型定義 ##
@@ -42,18 +36,19 @@ import {
  * Three.js ライブラリを動的にインポートする。
  *
  * @returns {Promise<object>} Three.js インスタンス
- * @throws  {Error}           Three.js のロードに失敗した場合エラーをスロー
+ * @throws                    Three.js のロードに失敗した場合エラーをスロー
  */
 async function loadThreeJS() {
     try {
         const threeJS = await import('https://esm.sh/three@0.177.0');
         return threeJS;
 
-        // ↓ エラーが発生した場合はエラーをスロー
+        // ↓ エラーが発生した場合の処理
     } catch (error) {
-        console.error('Three.js の動的インポートに失敗しました:', error);
-        alert('Three.js の読み込みに失敗しました。ゲームを開始できません。');
-        throw error;
+        throw new AppError(
+            ['Three.js の動的インポートに失敗しました。', error],
+            { shouldAlert: true }
+        );
     }
 }
 
@@ -66,6 +61,302 @@ function animateFrame() {
     return new Promise((resolve) => {
         requestAnimationFrame((timestamp) => resolve(timestamp));
     });
+}
+
+// #######################
+// ## モデルのレンダリング ##
+// ######################
+
+/**
+ * ロボット（プレイヤー）を描画する。
+ *
+ * @param   {object} params         パラメータ
+ * @param   {object} params.threeJS Three.js インスタンス
+ * @param   {number} params.x       X座標
+ * @param   {number} params.y       Y座標
+ * @param   {number} params.z       Z座標
+ * @returns {object}                ロボットのメッシュオブジェクト
+ */
+export function renderRobotModel({ threeJS, x, y, z }) {
+    const group = new threeJS.Group();
+
+    // メインボディ（丸みを帯びた箱型）
+    const bodyGeometry = new threeJS.BoxGeometry(0.6, 0.5, 0.5);
+    const bodyMaterial = new threeJS.MeshStandardMaterial({
+        color: 0xf5f5dc, // ベージュ色
+        metalness: 0.1,
+        roughness: 0.7,
+    });
+    const body = new threeJS.Mesh(bodyGeometry, bodyMaterial);
+    body.position.y = 0.35;
+
+    // ボディの角を丸くするためにスケール調整
+    body.scale.set(1, 1, 0.9);
+    group.add(body);
+
+    // 顔のプレート（青色のスクリーン部分）
+    const faceGeometry = new threeJS.BoxGeometry(0.35, 0.25, 0.02);
+    const faceMaterial = new threeJS.MeshStandardMaterial({
+        color: 0x4a90e2, // 明るい青色
+        metalness: 0.2,
+        roughness: 0.6,
+    });
+    const face = new threeJS.Mesh(faceGeometry, faceMaterial);
+    face.position.set(0, 0.35, 0.26); // ボディの前面に配置
+    group.add(face);
+
+    // 目（左）
+    const eyeGeometry = new threeJS.BoxGeometry(0.08, 0.12, 0.02);
+    const eyeMaterial = new threeJS.MeshStandardMaterial({
+        color: 0x1a1a1a,
+        metalness: 0.8,
+        roughness: 0.2,
+    });
+    const leftEye = new threeJS.Mesh(eyeGeometry, eyeMaterial);
+    leftEye.position.set(-0.1, 0.35, 0.27);
+    group.add(leftEye);
+
+    // 目（右）
+    const rightEye = new threeJS.Mesh(eyeGeometry, eyeMaterial);
+    rightEye.position.set(0.1, 0.35, 0.27);
+    group.add(rightEye);
+
+    // 車輪（左）
+    const wheelGeometry = new threeJS.CylinderGeometry(0.15, 0.15, 0.1, 16);
+    const wheelMaterial = new threeJS.MeshStandardMaterial({
+        color: 0x2c2c2c,
+        metalness: 0.3,
+        roughness: 0.8,
+    });
+    const leftWheel = new threeJS.Mesh(wheelGeometry, wheelMaterial);
+    leftWheel.rotation.z = Math.PI / 2;
+    leftWheel.position.set(-0.35, 0.15, 0);
+    group.add(leftWheel);
+
+    // 車輪（右）
+    const rightWheel = new threeJS.Mesh(wheelGeometry, wheelMaterial);
+    rightWheel.rotation.z = Math.PI / 2;
+    rightWheel.position.set(0.35, 0.15, 0);
+    group.add(rightWheel);
+
+    // 上部の三角マーカー（方向を示す）
+    const markerGeometry = new threeJS.ConeGeometry(0.1, 0.15, 4);
+    const markerMaterial = new threeJS.MeshStandardMaterial({
+        color: 0x333333,
+        metalness: 0.2,
+        roughness: 0.8,
+    });
+    const marker = new threeJS.Mesh(markerGeometry, markerMaterial);
+    marker.position.y = 0.7;
+    marker.rotation.y = Math.PI / 4; // 45度回転してダイヤモンド形に
+    group.add(marker);
+
+    // 位置を設定
+    group.position.set(x, y, z);
+
+    return group;
+}
+
+/**
+ * 障害物（土管）を描画する。
+ *
+ * @param   {object} params         パラメータ
+ * @param   {object} params.threeJS Three.js インスタンス
+ * @param   {number} params.x       X座標
+ * @param   {number} params.z       Z座標
+ * @returns {object}                土管のメッシュオブジェクト
+ */
+export function renderObstacleModel({ threeJS, x, z }) {
+    const group = new threeJS.Group();
+
+    // 土管の本体
+    const pipeGeometry = new threeJS.CylinderGeometry(0.4, 0.4, 0.8, 16);
+    const pipeMaterial = new threeJS.MeshStandardMaterial({
+        color: 0x228822,
+        metalness: 0.1,
+        roughness: 0.8,
+    });
+    const pipe = new threeJS.Mesh(pipeGeometry, pipeMaterial);
+    pipe.position.y = 0.4;
+    group.add(pipe);
+
+    // 土管の縁（上）
+    const rimGeometry = new threeJS.TorusGeometry(0.4, 0.05, 8, 16);
+    const rimMaterial = new threeJS.MeshStandardMaterial({
+        color: 0x33aa33,
+        metalness: 0.1,
+        roughness: 0.8,
+    });
+    const topRim = new threeJS.Mesh(rimGeometry, rimMaterial);
+    topRim.rotation.x = Math.PI / 2;
+    topRim.position.y = 0.8;
+    group.add(topRim);
+
+    // 土管の縁（下）
+    const bottomRim = new threeJS.Mesh(rimGeometry, rimMaterial);
+    bottomRim.rotation.x = Math.PI / 2;
+    bottomRim.position.y = 0;
+    group.add(bottomRim);
+
+    // 土管の内側（黒い空洞を表現）
+    const innerGeometry = new threeJS.CylinderGeometry(
+        0.35,
+        0.35,
+        0.79,
+        16,
+        1,
+        true
+    );
+    const innerMaterial = new threeJS.MeshBasicMaterial({
+        color: 0x000000,
+        side: threeJS.BackSide, // 内側から見えるように
+    });
+    const innerPipe = new threeJS.Mesh(innerGeometry, innerMaterial);
+    innerPipe.position.y = 0.395; // 上端が土管の上端とほぼ同じ高さに
+    group.add(innerPipe);
+
+    // 土管の底（内部を黒く見せるため）
+    const bottomCapGeometry = new threeJS.CircleGeometry(0.35, 16);
+    const bottomCapMaterial = new threeJS.MeshBasicMaterial({
+        color: 0x000000,
+        side: threeJS.DoubleSide,
+    });
+    const bottomCap = new threeJS.Mesh(bottomCapGeometry, bottomCapMaterial);
+    bottomCap.rotation.x = -Math.PI / 2;
+    bottomCap.position.y = 0.01; // ほぼ底の位置
+    group.add(bottomCap);
+
+    // 位置を設定
+    group.position.set(x, 0, z);
+
+    return group;
+}
+
+/**
+ * トラップ（針）を描画する。
+ *
+ * @param   {object} params         パラメータ
+ * @param   {object} params.threeJS Three.js インスタンス
+ * @param   {number} params.x       X座標
+ * @param   {number} params.z       Z座標
+ * @returns {object}                針のメッシュオブジェクト
+ */
+export function renderTrapModel({ threeJS, x, z }) {
+    const group = new threeJS.Group();
+
+    // ベース（土台）
+    const baseGeometry = new threeJS.BoxGeometry(0.9, 0.05, 0.9);
+    const baseMaterial = new threeJS.MeshStandardMaterial({
+        color: 0x999999,
+        metalness: 0.5,
+        roughness: 0.3,
+    });
+    const base = new threeJS.Mesh(baseGeometry, baseMaterial);
+    base.position.y = 0.025;
+    group.add(base);
+
+    // 針を複数配置
+    const spikeMaterial = new threeJS.MeshStandardMaterial({
+        color: 0xcccccc,
+        metalness: 0.8,
+        roughness: 0.2,
+    });
+
+    for (let i = -1; i <= 1; i++) {
+        for (let j = -1; j <= 1; j++) {
+            const spikeGeometry = new threeJS.ConeGeometry(0.08, 0.3, 8);
+            const spike = new threeJS.Mesh(spikeGeometry, spikeMaterial);
+            spike.position.set(i * 0.25, 0.2, j * 0.25);
+            group.add(spike);
+        }
+    }
+
+    // 位置を設定
+    group.position.set(x, 0, z);
+
+    return group;
+}
+
+/**
+ * ゴール（宝箱）を描画する。
+ *
+ * @param   {object} params         パラメータ
+ * @param   {object} params.threeJS Three.js インスタンス
+ * @param   {number} params.x       X座標
+ * @param   {number} params.z       Z座標
+ * @returns {object}                宝箱のメッシュオブジェクト
+ */
+export function renderGoalModel({ threeJS, x, z }) {
+    const group = new threeJS.Group();
+
+    // 宝箱の本体
+    const boxGeometry = new threeJS.BoxGeometry(0.7, 0.5, 0.5);
+    const boxMaterial = new threeJS.MeshStandardMaterial({
+        color: 0x8b4513,
+        metalness: 0.1,
+        roughness: 0.9,
+    });
+    const box = new threeJS.Mesh(boxGeometry, boxMaterial);
+    box.position.y = 0.25;
+    group.add(box);
+
+    // 宝箱の蓋
+    const lidGeometry = new threeJS.BoxGeometry(0.7, 0.15, 0.5);
+    const lidMaterial = new threeJS.MeshStandardMaterial({
+        color: 0xa0522d,
+        metalness: 0.1,
+        roughness: 0.9,
+    });
+    const lid = new threeJS.Mesh(lidGeometry, lidMaterial);
+    lid.position.set(0, 0.525, -0.1);
+    lid.rotation.x = -0.3; // 少し開いた状態
+    group.add(lid);
+
+    // 金の装飾（中央）
+    const decorationGeometry = new threeJS.BoxGeometry(0.1, 0.3, 0.02);
+    const decorationMaterial = new threeJS.MeshStandardMaterial({
+        color: 0xffd700,
+        metalness: 0.7,
+        roughness: 0.3,
+    });
+    const decoration = new threeJS.Mesh(decorationGeometry, decorationMaterial);
+    decoration.position.set(0, 0.25, 0.26);
+    group.add(decoration);
+
+    // 金の装飾（横バー）
+    const barGeometry = new threeJS.BoxGeometry(0.7, 0.05, 0.02);
+    const bar = new threeJS.Mesh(barGeometry, decorationMaterial);
+    bar.position.set(0, 0.25, 0.26);
+    group.add(bar);
+
+    // 位置を設定
+    group.position.set(x, 0, z);
+
+    return group;
+}
+
+/**
+ * 通常のタイルを描画する。
+ *
+ * @param   {object} params         パラメータ
+ * @param   {object} params.threeJS Three.js インスタンス
+ * @param   {number} params.x       X座標
+ * @param   {number} params.z       Z座標
+ * @param   {number} params.color   タイルの色
+ * @returns {object}                タイルのメッシュオブジェクト
+ */
+export function renderTileModel({ threeJS, x, z, color }) {
+    const geometry = new threeJS.PlaneGeometry(0.98, 0.98);
+    const material = new threeJS.MeshStandardMaterial({
+        color: color,
+        side: threeJS.DoubleSide,
+    });
+
+    const tile = new threeJS.Mesh(geometry, material);
+    tile.rotation.x = -Math.PI / 2; // X軸を中心に-90度回転して水平に
+    tile.position.set(x, 0.01, z); // 盤面の上に少し浮かせて配置
+
+    return tile;
 }
 
 // ######################
@@ -121,7 +412,7 @@ function updateCameraSettings({ camera, mapDisplayWidth, mapDisplayHeight }) {
  * @param   {HTMLElement} params.element   レンダリング対象の要素
  * @param   {MapConfig}   params.mapConfig マップ設定オブジェクト
  * @returns                                マップコンテキスト
- * @throws  {Error}                        スタート位置またはエンド位置が見つからない場合にエラーをスロー
+ * @throws                                 スタート位置またはエンド位置が見つからない場合にエラーをスロー
  */
 function renderMap({ threeJS, element, mapConfig }) {
     // スタート位置とエンド位置を検索
@@ -161,10 +452,10 @@ function renderMap({ threeJS, element, mapConfig }) {
 
     // スタート位置またはエンド位置が見つからない場合はエラーをスロー
     if (!position.start) {
-        throw new Error('マップに開始位置が見つかりません。');
+        throw new AppError('マップに開始位置が見つかりません。');
     }
     if (!position.end) {
-        throw new Error('マップに終了位置が見つかりません。');
+        throw new AppError('マップに終了位置が見つかりません。');
     }
 
     // シーンを作成
@@ -379,7 +670,7 @@ function createRobot({ threeJS, mapContext }) {
  * @param   {HTMLElement} params.element   レンダリング対象の要素
  * @param   {object}      params.mapConfig マップ設定オブジェクト
  * @returns                                コンテキストオブジェクト
- * @throws  {Error}                        Three.js のロードまたはゲームの初期化に失敗した場合エラーをスロー
+ * @throws                                 Three.js のロードまたはゲームの初期化に失敗した場合エラーをスロー
  */
 export async function renderGame({ element, mapConfig }) {
     const threeJS = await loadThreeJS();
@@ -464,7 +755,10 @@ function animateGoalChest(context) {
             goalChest.rotation.y = 0;
             // アニメーション完了後に成功アラートを表示
             setTimeout(() => {
-                alert('ゴールに到達しました！ おめでとうございます！');
+                AppLogger.success(
+                    'ゴールに到達しました！\nおめでとうございます！',
+                    { alert: true }
+                );
             }, 100);
         }
 
@@ -517,7 +811,7 @@ export async function moveRobot({ context, direction }) {
 
     const config = directionConfig[direction];
     if (!config) {
-        console.warn('未知の方向:', direction);
+        AppLogger.warning(['未知の方向を検出しました。', direction]);
         return; // 未知の方向の場合は早期リターン
     }
 
@@ -539,9 +833,10 @@ export async function moveRobot({ context, direction }) {
         targetZ < 0 ||
         targetZ >= mapDisplayHeight;
     if (isOutOfBounds) {
-        console.debug(
-            `盤外への移動をブロック: (${currentX},${currentZ}) -> (${targetX},${targetZ})`
-        );
+        AppLogger.debug([
+            `盤外への移動をブロックしました。`,
+            `(${currentX},${currentZ}) -> (${targetX},${targetZ})`,
+        ]);
         return;
     }
 
@@ -550,7 +845,7 @@ export async function moveRobot({ context, direction }) {
         (pos) => pos.x === targetX && pos.y === targetZ
     );
     if (isObjectCollision) {
-        console.debug('オブジェクトとの衝突を検出しました');
+        AppLogger.debug('オブジェクトとの衝突を検出しました。');
         return;
     }
 
@@ -602,11 +897,13 @@ export async function moveRobot({ context, direction }) {
     // 移動完了時の処理
     // トラップに到達したかチェック
     if (isTrapCollision) {
-        console.log('トラップに接触しました！');
         context.isGameFinished = true;
-        requestAnimationFrame(() =>
-            alert('トラップに接触しました！ ゲームオーバーです。')
-        );
+        requestAnimationFrame(() => {
+            AppLogger.error(
+                'トラップに接触しました！\n' + 'ゲームオーバーです。',
+                { alert: true }
+            );
+        });
         return; // 早期リターン
     }
 
@@ -615,7 +912,6 @@ export async function moveRobot({ context, direction }) {
         targetX === context.position.end.x &&
         targetZ === context.position.end.y;
     if (isGoal) {
-        console.log('ゴールに到達しました！');
         context.isGameFinished = true;
         animateGoalChest(context);
     }
@@ -632,7 +928,7 @@ function resetGoalChest(gameContext) {
         // 宝箱の回転と位置を初期化
         goalChest.rotation.y = 0;
         goalChest.position.y = 0;
-        console.log('宝箱を初期状態にリセットしました');
+        AppLogger.info('宝箱を初期状態にリセットしました');
     }
 }
 
@@ -641,7 +937,7 @@ function resetGoalChest(gameContext) {
  *
  * @param {HTMLElement} element レンダリング対象の要素
  */
-function renderGameAIResponseViewer(element) {
+function renderGameResponseViewer(element) {
     // ラベルを作成
     const label = document.createElement('div');
     label.id = 'game-response-viewer-label';
@@ -650,7 +946,7 @@ function renderGameAIResponseViewer(element) {
     // レスポンス表示エリアを作成
     const response = document.createElement('div');
     response.id = 'game-response-viewer-content';
-    response.innerHTML = '↑'; // ダミーテキスト
+    response.innerHTML = '‎'; // ダミーテキスト
 
     // 要素を追加
     element.appendChild(label);
@@ -685,13 +981,10 @@ function setupRobotMoverButton({
 
     // 初回実行フラグ
     let hasRunOnce = false;
-
-    // ボタンの初期化はrenderGameTriggerで実行済み
-
-    // GameContextにmapDisplayWidthとmapDisplayHeightが含まれているか確認
-
     element.addEventListener('click', async () => {
-        console.log('AIによる経路指示に基づくプレイヤー移動を開始します...');
+        AppLogger.groupCollapsed('ロボット移動処理開始');
+
+        AppLogger.info('AIによる経路指示に基づくプレイヤー移動を開始します...');
         element.disabled = true; // 処理中にボタンを無効化
 
         // 再実行時に宝箱をリセット
@@ -701,12 +994,12 @@ function setupRobotMoverButton({
             // ゲーム終了フラグをリセット
             gameContext.isGameFinished = false;
 
-            // レスポンス表示をクリア
+            // レスポンス表示をクリアしてダミーテキストを設定
             const responseEl = document.getElementById(
                 'game-response-viewer-content'
             );
             if (responseEl) {
-                responseEl.innerHTML = '';
+                responseEl.innerHTML = '‎'; // ダミーテキスト
                 responseEl.classList.remove('visible');
             }
         }
@@ -728,8 +1021,9 @@ function setupRobotMoverButton({
 
         // スタート地点が見つからない場合はエラーを表示して終了
         if (!startPositionFound) {
-            alert(
-                'スタート地点がマップ設定に見つかりませんでした。ロボットはリセットされません。'
+            AppLogger.error(
+                'スタート地点がマップ設定に見つかりませんでした。ロボットはリセットされません。',
+                { alert: true }
             );
             return;
         }
@@ -743,8 +1037,7 @@ function setupRobotMoverButton({
         const originalHTML = element.innerHTML;
 
         // スピナーを追加
-        element.innerHTML = '<span class="spinner"></span>回答待ち';
-
+        element.innerHTML = '<span class="spinner"></span>';
         try {
             // 経路を取得
             const moves = await pathFetcher();
@@ -753,7 +1046,7 @@ function setupRobotMoverButton({
             element.innerHTML = '実行中';
 
             // 経路をコンソールに出力
-            console.log('AIからの経路:', moves);
+            AppLogger.debug(['AIからの経路。', moves]);
 
             // レスポンス表示領域の更新
             const responseEl = document.getElementById(
@@ -781,7 +1074,8 @@ function setupRobotMoverButton({
 
             // 経路がない場合はエラーを表示して終了
             if (!moves || moves.length === 0) {
-                alert('AIから有効な経路が返されませんでした。');
+                const errorMessage = 'AIから有効な経路が返されませんでした。';
+                AppLogger.error(errorMessage, { alert: true });
                 return;
             }
 
@@ -790,7 +1084,6 @@ function setupRobotMoverButton({
 
             // 移動をキャンセル可能にするためのフラグ
             let shouldContinue = true;
-            const movePromises = [];
 
             // ゲーム終了監視用のインターバル
             const gameFinishCheckInterval = setInterval(() => {
@@ -806,7 +1099,7 @@ function setupRobotMoverButton({
             for (let i = 0; i < moveSequence.length; i++) {
                 // 移動を中断すべきかチェック
                 if (!shouldContinue || gameContext.isGameFinished) {
-                    console.log('ゲーム終了のため移動を中断します');
+                    AppLogger.info('ゲーム終了のため移動を中断します。');
                     break;
                 }
 
@@ -844,17 +1137,13 @@ function setupRobotMoverButton({
 
             // 最後の移動の完了を待つ
             await previousMovePromise;
-
             clearInterval(gameFinishCheckInterval);
 
             // ↓ エラーが発生した場合の処理
         } catch (error) {
-            console.error(
-                'AI経路取得またはロボット移動の実行中にエラーが発生しました:',
-                error
-            );
-            // エラー時もHTMLを復元
-            element.innerHTML = originalHTML;
+            const errors = ['ゲームのセットアップに失敗しました。', error];
+            error instanceof AppError ? error.log() : AppLogger.error(errors);
+            element.innerHTML = originalHTML; // エラー時もHTMLを復元
 
             // ↓ 処理が全て完了した時の処理
         } finally {
@@ -864,71 +1153,101 @@ function setupRobotMoverButton({
             if (!hasRunOnce) {
                 element.innerHTML = '再実行';
                 hasRunOnce = true;
+
+                // ↓ 2回目以降は「再実行」に戻す
             } else {
-                // 2回目以降は「再実行」に戻す
                 element.innerHTML = '再実行';
             }
+
+            AppLogger.groupEnd();
         }
     });
+}
+
+/**
+ * ゲームに必要な要素を取得する。
+ *
+ * @param   {object}      elements                      要素のオブジェクト
+ * @param   {HTMLElement} [elements.gameViewer]         ゲーム表示エリア
+ * @param   {HTMLElement} [elements.gameResponseViewer] AIレスポンス表示エリア
+ * @param   {HTMLElement} [elements.gameTrigger]        トリガーボタン
+ * @returns {object}                                    取得した要素のオブジェクト
+ * @throws                                              必要な要素が見つからない場合
+ */
+function getGameElements(elements = {}) {
+    const gameViewerEl =
+        elements.gameViewer || document.getElementById('game-viewer');
+    if (!gameViewerEl) {
+        throw new AppError('ゲーム表示エリアが見つかりません。');
+    }
+
+    const gameResponseViewerEl =
+        elements.gameResponseViewer ||
+        document.getElementById('game-response-viewer');
+    if (!gameResponseViewerEl) {
+        throw new AppError('AIレスポンス表示エリアが見つかりません。');
+    }
+
+    const gameTriggerEl =
+        elements.gameTrigger || document.getElementById('game-trigger');
+    if (!gameTriggerEl) {
+        throw new AppError('トリガーボタンが見つかりません。');
+    }
+
+    return {
+        gameViewerEl,
+        gameResponseViewerEl,
+        gameTriggerEl,
+    };
 }
 
 /**
  * ゲームの統合セットアップを行う。
  * 各要素のレンダリング、ゲームの初期化、イベントハンドラの設定を行う。
  *
- * @param {object}      params                      セットアップパラメータ
- * @param {object}      params.mapConfig            マップ設定
- * @param {function}    params.pathFetcher          経路取得関数
- * @param {HTMLElement} params.gameViewerEl         ゲーム表示エリア (デフォルト: id='game-viewer')
- * @param {HTMLElement} params.gameResponseViewerEl AIレスポンス表示エリア (デフォルト: id='game-response-viewer')
- * @param {HTMLElement} params.gameTriggerEl        トリガーボタン (デフォルト: id='game-trigger')
-
+ * @param {object}      params                               セットアップパラメータ
+ * @param {object}      params.mapConfig                    yマップ設定
+ * @param {function}    params.pathFetcher                   経路取得関数
+ * @param {object}      [params.element]                    要素のオブジェクト
+ * @param {HTMLElement} [params.element.gameViewer]         ゲーム表示エリア
+ * @param {HTMLElement} [params.element.gameResponseViewer] レスポンス表示エリア
+ * @param {HTMLElement} [params.element.gameTrigger]        トリガーボタン
  */
-export async function setupGame({
-    mapConfig,
-    pathFetcher,
-    gameViewerEl,
-    gameResponseViewerEl,
-    gameTriggerEl,
-}) {
-    // 要素の表示量機に関する要素を取得
-    gameViewerEl = gameViewerEl || document.getElementById('game-viewer');
-    if (!gameViewerEl) {
-        throw new Error('ゲーム表示エリアが見つかりません。');
+export async function setupGame({ mapConfig, pathFetcher, element = {} }) {
+    try {
+        const {
+            // ゲーム要素を取得
+            gameViewerEl,
+            gameResponseViewerEl,
+            gameTriggerEl,
+        } = getGameElements(element);
+
+        // AIレスポンス表示エリアをレンダリング
+        renderGameResponseViewer(gameResponseViewerEl);
+
+        // トリガーボタンをレンダリング
+        renderGameTrigger(gameTriggerEl);
+
+        // ゲームをレンダリング
+        const gameContext = await renderGame({
+            element: gameViewerEl,
+            mapConfig,
+        });
+
+        // ロボット移動ボタンをセットアップ
+        setupRobotMoverButton({
+            element: gameTriggerEl,
+            mapConfig,
+            gameContext,
+            pathFetcher,
+        });
+
+        return gameContext;
+
+        // ↓ エラーが発生した場合の処理
+    } catch (error) {
+        error instanceof AppError
+            ? error.log()
+            : AppLogger.error(['ゲームのセットアップに失敗しました。', error]);
     }
-
-    // ゲームのAIレスポンス表示エリアを取得
-    gameResponseViewerEl =
-        gameResponseViewerEl || document.getElementById('game-response-viewer');
-    if (!gameResponseViewerEl) {
-        throw new Error('AIレスポンス表示エリアが見つかりません。');
-    }
-
-    // ゲームのトリガーボタンを取得
-    gameTriggerEl = gameTriggerEl || document.getElementById('game-trigger');
-    if (!gameTriggerEl) {
-        throw new Error('トリガーボタンが見つかりません。');
-    }
-
-    // AIレスポンス表示エリアをレンダリング
-    renderGameAIResponseViewer(gameResponseViewerEl);
-
-    // トリガーボタンをレンダリング
-    renderGameTrigger(gameTriggerEl);
-
-    // ゲームをレンダリング
-    const gameContext = await renderGame({
-        element: gameViewerEl,
-        mapConfig,
-    });
-
-    // ロボット移動ボタンをセットアップ
-    setupRobotMoverButton({
-        element: gameTriggerEl,
-        mapConfig,
-        gameContext,
-        pathFetcher,
-    });
-
-    return gameContext;
 }

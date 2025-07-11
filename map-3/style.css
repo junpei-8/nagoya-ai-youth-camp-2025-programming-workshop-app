@@ -1,3 +1,9 @@
+/**
+ * ##########
+ * ## Core ##
+ * ##########
+ */
+
 html,
 body {
     margin: 0;
@@ -10,81 +16,60 @@ body {
     align-items: center;
     height: 100svh;
     overflow: hidden;
+    padding: 24px;
+    box-sizing: border-box;
 }
+
+/**
+  * ##########################
+  * ## Game Response Viewer ##
+  * ##########################
+  */
 
 #game-viewer {
-    width: 80vw;
-    flex: 1;
-    border-radius: 24px;
-    margin-bottom: 24px;
-    overflow: hidden;
-}
-
-#game-trigger {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 10px 16px;
-    font-size: 14px;
-    border-radius: 6px;
-    background-color: #3e9f78;
-    border: 1px solid rgba(62, 159, 120, 0.1);
-    color: #fff;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease-in-out;
-    transform: scale(1);
+    overflow: hidden;
+    flex: 1;
+    width: 100%;
 }
 
-#game-trigger:hover:not(:disabled) {
-    background-color: #358a66;
-    transform: scale(1.05);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-#game-trigger:active:not(:disabled) {
-    background-color: #2c7554;
-    transform: scale(0.98);
-}
-
-#game-trigger:disabled {
-    background-color: #9ca3af;
-    border-color: #d1d5db;
-    cursor: not-allowed;
-    opacity: 0.6;
-    transform: scale(1);
-}
+/**
+  * ##########################
+  * ## Game Response Viewer ##
+  * ##########################
+  */
 
 #game-response-viewer {
-    background-color: #9ca3af;
+    display: block;
+    width: 100%;
+    max-width: 480px;
+    margin-bottom: 24px;
+    padding: 16px;
+    box-sizing: border-box;
+    background-color: #f3f4f6;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    padding: 16px;
-    margin-bottom: 16px;
-    width: 50%;
-    min-height: 60px;
-    max-height: 200px;
     overflow-y: auto;
-    display: block;
 }
 
 #game-response-viewer-label {
-    font-size: 12px;
     color: #6b7280;
+    font-size: 12px;
     font-weight: 600;
     margin-bottom: 8px;
 }
 
 #game-response-viewer-content {
-    font-size: 24px;
-    color: #1f2937;
-    font-weight: 500;
-    letter-spacing: 4px;
-    opacity: 0;
-    transition: opacity 0.3s ease-in-out;
     display: flex;
     align-items: center;
-    min-height: 36px;
+    color: #1f2937;
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: 4px;
+    transition: opacity 0.3s ease-in-out;
+    opacity: 0;
 }
 
 #game-response-viewer-content.visible {
@@ -94,10 +79,10 @@ body {
 #game-response-viewer-content span {
     display: inline-block;
     opacity: 0;
-    animation: fadeInArrow 0.4s ease-in-out forwards;
+    animation: gameResponseViewerContentFadeInArrow 0.4s ease-in-out forwards;
 }
 
-@keyframes fadeInArrow {
+@keyframes gameResponseViewerContentFadeInArrow {
     from {
         opacity: 0;
         transform: translateY(-10px);
@@ -108,20 +93,63 @@ body {
     }
 }
 
-.spinner {
+/**
+  * ##################
+  * ## Game Trigger ##
+  * ##################
+  */
+
+#game-trigger {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 480px;
+    padding: 12px 16px;
+    box-sizing: border-box;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    background-color: #3e9f78;
+    border: 1px solid rgba(62, 159, 120, 0.1);
+    cursor: pointer;
+    transform: scale(1);
+    transition: all 0.2s ease-in-out;
+}
+
+#game-trigger:hover:not(:disabled) {
+    background-color: #358862;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transform: scale(1.02);
+}
+
+#game-trigger:active:not(:disabled) {
+    background-color: #2c7150;
+    transform: scale(0.98);
+}
+
+#game-trigger:disabled {
+    background-color: #9ca3af;
+    border-color: #d1d5db;
+    cursor: not-allowed;
+    transform: scale(1);
+    opacity: 0.6;
+}
+
+#game-trigger .spinner {
     display: inline-block;
     width: 16px;
     height: 16px;
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-top-color: #fff;
     border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+    animation: gameTriggerSpinner 0.8s linear infinite;
     margin-right: 8px;
 }
 
-@keyframes spin {
+@keyframes gameTriggerSpinner {
     to {
         transform: rotate(360deg);
     }
 }
-

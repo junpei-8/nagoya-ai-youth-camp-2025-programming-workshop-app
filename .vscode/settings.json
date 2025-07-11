@@ -15,5 +15,7 @@
 
     "explorer.sortOrderLexicographicOptions": "unicode",
 
-    "cSpell.userWords": []
+    "cSpell.userWords": [],
+    "liveServer.settings.port": 5501,
+    "cSpell.words": ["metalness"]
 }
